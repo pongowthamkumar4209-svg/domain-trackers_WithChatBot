@@ -1,17 +1,16 @@
 import { useState, useMemo } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
-import StatsCard from '@/components/dashboard/StatsCard';
 import DomainTable from '@/components/dashboard/DomainTable';
 import SearchFilter from '@/components/dashboard/SearchFilter';
 import DomainFormModal from '@/components/domains/DomainFormModal';
 import DeleteConfirmModal from '@/components/domains/DeleteConfirmModal';
 import { Button } from '@/components/ui/button';
-import { mockDomains, calculateStats } from '@/data/mockDomains';
+import { mockDomains } from '@/data/mockDomains';
 import { Domain, DomainStatus } from '@/types/domain';
-import { Globe, CheckCircle, AlertTriangle, XCircle, Plus } from 'lucide-react';
+import { Plus, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-const Index = () => {
+const Domains = () => {
   const { toast } = useToast();
   const [domains, setDomains] = useState<Domain[]>(mockDomains);
   const [searchQuery, setSearchQuery] = useState('');
@@ -19,8 +18,6 @@ const Index = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedDomain, setSelectedDomain] = useState<Domain | null>(null);
-
-  const stats = useMemo(() => calculateStats(domains), [domains]);
 
   const filteredDomains = useMemo(() => {
     return domains.filter((domain) => {
@@ -74,9 +71,32 @@ const Index = () => {
     }
   };
 
-  const handleAddNew = () => {
-    setSelectedDomain(null);
-    setIsFormOpen(true);
+  const handleExportCSV = () => {
+    const headers = ['Domain Name', 'Registrar', 'Owner', 'Renewal Date', 'Status', 'Notes'];
+    const csvContent = [
+      headers.join(','),
+      ...filteredDomains.map((d) => [
+        d.name,
+        d.registrar,
+        d.owner,
+        d.renewalDate.toISOString().split('T')[0],
+        d.status,
+        `"${d.notes || ''}"`,
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'domain-registry.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+
+    toast({
+      title: 'Export Complete',
+      description: 'Domain data has been exported to CSV.',
+    });
   };
 
   return (
@@ -86,48 +106,22 @@ const Index = () => {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="font-display text-3xl tracking-wider text-foreground md:text-4xl">
-              DOMAIN DASHBOARD
+              ALL DOMAINS
             </h1>
             <p className="mt-1 text-muted-foreground">
-              Monitor and manage your railroad domain portfolio
+              Complete registry of tracked domains
             </p>
           </div>
-          <Button variant="accent" size="lg" onClick={handleAddNew}>
-            <Plus className="mr-2 h-5 w-5" />
-            Add Domain
-          </Button>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatsCard
-            title="Total Domains"
-            value={stats.total}
-            icon={Globe}
-            variant="default"
-            description="Registered domains"
-          />
-          <StatsCard
-            title="Active"
-            value={stats.active}
-            icon={CheckCircle}
-            variant="success"
-            description="In good standing"
-          />
-          <StatsCard
-            title="Expiring Soon"
-            value={stats.expiringSoon}
-            icon={AlertTriangle}
-            variant="warning"
-            description="Within 30 days"
-          />
-          <StatsCard
-            title="Expired"
-            value={stats.expired}
-            icon={XCircle}
-            variant="danger"
-            description="Needs attention"
-          />
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={handleExportCSV}>
+              <Download className="mr-2 h-4 w-4" />
+              Export CSV
+            </Button>
+            <Button variant="accent" onClick={() => setIsFormOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Domain
+            </Button>
+          </div>
         </div>
 
         {/* Search and Filter */}
@@ -141,9 +135,6 @@ const Index = () => {
         {/* Domain Table */}
         <div>
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-display text-xl tracking-wider text-foreground">
-              DOMAIN REGISTRY
-            </h2>
             <span className="text-sm text-muted-foreground">
               Showing {filteredDomains.length} of {domains.length} domains
             </span>
@@ -154,27 +145,6 @@ const Index = () => {
             onDelete={handleDelete}
           />
         </div>
-
-        {/* Empty State */}
-        {filteredDomains.length === 0 && (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card/50 py-16">
-            <Globe className="h-12 w-12 text-muted-foreground/50" />
-            <h3 className="mt-4 font-display text-xl tracking-wider text-foreground">
-              NO DOMAINS FOUND
-            </h3>
-            <p className="mt-2 text-muted-foreground">
-              {searchQuery || statusFilter !== 'all'
-                ? 'Try adjusting your search or filter criteria'
-                : 'Add your first domain to get started'}
-            </p>
-            {!searchQuery && statusFilter === 'all' && (
-              <Button variant="accent" className="mt-4" onClick={handleAddNew}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Domain
-              </Button>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Modals */}
@@ -200,4 +170,4 @@ const Index = () => {
   );
 };
 
-export default Index;
+export default Domains;
