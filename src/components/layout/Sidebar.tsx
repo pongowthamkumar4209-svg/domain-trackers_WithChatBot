@@ -2,9 +2,6 @@ import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
-  Globe,
-  Plus,
-  FileText,
   Settings,
   X,
   Train,
@@ -18,9 +15,6 @@ interface SidebarProps {
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'All Domains', href: '/domains', icon: Globe },
-  { name: 'Add Domain', href: '/domains/add', icon: Plus },
-  { name: 'Reports', href: '/reports', icon: FileText },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
@@ -98,7 +92,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                 Admin User
               </p>
               <p className="text-xs text-sidebar-foreground/60">
-                admin@railroad.com
+                Railroad Clarification
               </p>
             </div>
           </div>
