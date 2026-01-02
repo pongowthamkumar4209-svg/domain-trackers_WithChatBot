@@ -18,28 +18,28 @@ const Header = ({ onMenuClick }: HeaderProps) => {
   const { logout, user } = useAuth();
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-gradient-to-r from-primary to-primary/90 shadow-lg">
+    <header className="sticky top-0 z-50 w-full border-b border-border bg-card shadow-sm">
       <div className="flex h-16 items-center justify-between px-4 md:px-6">
         {/* Left Section */}
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
             size="icon"
-            className="md:hidden text-primary-foreground hover:bg-primary-foreground/10"
+            className="md:hidden"
             onClick={onMenuClick}
           >
             <Menu className="h-5 w-5" />
           </Button>
           
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent shadow-md">
-              <Train className="h-6 w-6 text-accent-foreground" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 shadow-md">
+              <Train className="h-6 w-6 text-white" />
             </div>
             <div className="hidden sm:block">
-              <h1 className="font-display text-xl tracking-wider text-primary-foreground">
+              <h1 className="font-display text-xl tracking-wider text-foreground">
                 RAILROAD CLARIFICATION PORTAL
               </h1>
-              <p className="text-xs text-primary-foreground/70">
+              <p className="text-xs text-muted-foreground">
                 Clarification Management System
               </p>
             </div>
@@ -51,7 +51,7 @@ const Header = ({ onMenuClick }: HeaderProps) => {
           {/* User Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/10">
+              <Button variant="ghost" size="icon">
                 <User className="h-5 w-5" />
               </Button>
             </DropdownMenuTrigger>
@@ -67,8 +67,8 @@ const Header = ({ onMenuClick }: HeaderProps) => {
         </div>
       </div>
       
-      {/* Railroad Track Decoration */}
-      <div className="h-1 bg-accent/80" />
+      {/* Decorative accent bar */}
+      <div className="h-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500" />
     </header>
   );
 };

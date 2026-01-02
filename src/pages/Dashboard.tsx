@@ -92,15 +92,16 @@ export default function Dashboard() {
     <MainLayout>
       <div className="space-y-8">
         {/* Header Section */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/90 to-primary/80 p-8 text-primary-foreground shadow-xl">
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800 p-8 text-white shadow-xl">
           <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-50" />
           <div className="relative z-10">
             <h1 className="text-4xl font-display tracking-wide mb-2">Welcome Back</h1>
-            <p className="text-primary-foreground/80 text-lg">
+            <p className="text-white/70 text-lg">
               Manage and search your clarification data efficiently
             </p>
           </div>
-          <div className="absolute -bottom-10 -right-10 h-40 w-40 rounded-full bg-accent/20 blur-3xl" />
+          <div className="absolute -bottom-10 -right-10 h-40 w-40 rounded-full bg-emerald-500/20 blur-3xl" />
+          <div className="absolute -top-10 -left-10 h-32 w-32 rounded-full bg-cyan-500/20 blur-3xl" />
         </div>
 
         {/* Upload Banner */}
@@ -117,7 +118,7 @@ export default function Dashboard() {
 
         {/* Stats Cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg hover:shadow-xl transition-shadow">
+          <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-white/90">Total Records</CardTitle>
               <FileSpreadsheet className="h-5 w-5 text-white/70" />
@@ -129,7 +130,7 @@ export default function Dashboard() {
             <div className="absolute -bottom-4 -right-4 h-20 w-20 rounded-full bg-white/10 blur-2xl" />
           </Card>
 
-          <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-lg hover:shadow-xl transition-shadow">
+          <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-white/90">Open Items</CardTitle>
               <AlertCircle className="h-5 w-5 text-white/70" />
@@ -141,7 +142,7 @@ export default function Dashboard() {
             <div className="absolute -bottom-4 -right-4 h-20 w-20 rounded-full bg-white/10 blur-2xl" />
           </Card>
 
-          <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-lg hover:shadow-xl transition-shadow">
+          <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-white/90">Resolved</CardTitle>
               <CheckCircle className="h-5 w-5 text-white/70" />
@@ -153,7 +154,7 @@ export default function Dashboard() {
             <div className="absolute -bottom-4 -right-4 h-20 w-20 rounded-full bg-white/10 blur-2xl" />
           </Card>
 
-          <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-rose-500 to-red-600 text-white shadow-lg hover:shadow-xl transition-shadow">
+          <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-rose-500 to-pink-600 text-white shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-white/90">High Priority</CardTitle>
               <TrendingUp className="h-5 w-5 text-white/70" />
@@ -167,10 +168,10 @@ export default function Dashboard() {
         </div>
 
         {/* Quick Search */}
-        <Card className="shadow-md">
+        <Card className="shadow-md border-l-4 border-l-violet-500">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Search className="h-5 w-5 text-primary" />
+              <Search className="h-5 w-5 text-violet-500" />
               Quick Search
             </CardTitle>
             <CardDescription>
@@ -183,10 +184,10 @@ export default function Dashboard() {
         </Card>
 
         {/* Upload Section */}
-        <Card className="shadow-md">
+        <Card className="shadow-md border-l-4 border-l-emerald-500">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Upload className="h-5 w-5 text-primary" />
+              <Upload className="h-5 w-5 text-emerald-500" />
               Upload Excel File
             </CardTitle>
             <CardDescription>
@@ -213,10 +214,10 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         ) : clarifications.length > 0 ? (
-          <Card className="shadow-md overflow-hidden">
+          <Card className="shadow-md overflow-hidden border-l-4 border-l-amber-500">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5 text-primary" />
+                <BarChart3 className="h-5 w-5 text-amber-500" />
                 Clarification Data
               </CardTitle>
               <CardDescription>
