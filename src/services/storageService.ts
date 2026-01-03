@@ -1,55 +1,5 @@
-import { openDB, DBSchema, IDBPDatabase } from 'idb';
+import { supabase } from '@/integrations/supabase/client';
 import { Clarification, Upload, UploadResult, ClarificationStats } from '@/types/clarification';
-
-interface ClarificationDB extends DBSchema {
-  clarifications: {
-    key: string;
-    value: Clarification;
-    indexes: {
-      'by-hash': string;
-      'by-status': string;
-      'by-priority': string;
-      'by-module': string;
-      'by-date': string;
-    };
-  };
-  uploads: {
-    key: string;
-    value: Upload;
-    indexes: {
-      'by-date': string;
-    };
-  };
-}
-
-let db: IDBPDatabase<ClarificationDB> | null = null;
-
-async function getDB(): Promise<IDBPDatabase<ClarificationDB>> {
-  if (db) return db;
-  
-  db = await openDB<ClarificationDB>('cn-clarification-portal', 1, {
-    upgrade(database) {
-      // Clarifications store
-      const clarificationStore = database.createObjectStore('clarifications', { keyPath: 'id' });
-      clarificationStore.createIndex('by-hash', 'row_hash', { unique: true });
-      clarificationStore.createIndex('by-status', 'status');
-      clarificationStore.createIndex('by-priority', 'priority');
-      clarificationStore.createIndex('by-module', 'module');
-      clarificationStore.createIndex('by-date', 'date');
-      
-      // Uploads store
-      const uploadsStore = database.createObjectStore('uploads', { keyPath: 'id' });
-      uploadsStore.createIndex('by-date', 'uploaded_at');
-    },
-  });
-  
-  return db;
-}
-
-// Generate UUID
-function generateId(): string {
-  return crypto.randomUUID();
-}
 
 // Save clarifications with append-only logic
 export async function saveClarifications(
@@ -57,24 +7,45 @@ export async function saveClarifications(
   filename: string,
   sheetName: string
 ): Promise<UploadResult> {
-  const database = await getDB();
-  const uploadId = generateId();
-  
+  // First, create the upload record
+  const { data: uploadData, error: uploadError } = await supabase
+    .from('uploads')
+    .insert({
+      filename,
+      sheet_name: sheetName,
+      total_rows_in_file: rows.length,
+      added_count: 0,
+      duplicates_skipped: 0,
+    })
+    .select('id')
+    .single();
+
+  if (uploadError) {
+    console.error('Error creating upload:', uploadError);
+    throw new Error('Failed to create upload record');
+  }
+
+  const uploadId = uploadData.id;
   let addedCount = 0;
   let duplicatesSkipped = 0;
-  
-  const tx = database.transaction('clarifications', 'readwrite');
-  
+
+  // Process rows - check for duplicates by hash
   for (const row of rows) {
-    try {
-      // Check if hash already exists
-      const existing = await tx.store.index('by-hash').get(row.row_hash!);
-      
-      if (existing) {
-        duplicatesSkipped++;
-      } else {
-        const clarification: Clarification = {
-          id: generateId(),
+    if (!row.row_hash) continue;
+
+    // Check if hash already exists
+    const { data: existing } = await supabase
+      .from('clarifications')
+      .select('id')
+      .eq('row_hash', row.row_hash)
+      .maybeSingle();
+
+    if (existing) {
+      duplicatesSkipped++;
+    } else {
+      const { error: insertError } = await supabase
+        .from('clarifications')
+        .insert({
           s_no: row.s_no ?? null,
           module: row.module || '',
           scenario_steps: row.scenario_steps || '',
@@ -90,48 +61,43 @@ export async function saveClarifications(
           priority: row.priority || '',
           assigned_to: row.assigned_to || '',
           reason: row.reason || '',
-          row_hash: row.row_hash!,
-          first_seen_at: new Date().toISOString(),
+          row_hash: row.row_hash,
           source_upload_id: uploadId,
-        };
-        
-        await tx.store.add(clarification);
-        addedCount++;
-      }
-    } catch (error) {
-      // If it's a constraint error (duplicate), skip
-      if (error instanceof Error && error.name === 'ConstraintError') {
-        duplicatesSkipped++;
+        });
+
+      if (insertError) {
+        // If it's a unique constraint error, it's a duplicate
+        if (insertError.code === '23505') {
+          duplicatesSkipped++;
+        } else {
+          console.error('Error inserting clarification:', insertError);
+        }
       } else {
-        throw error;
+        addedCount++;
       }
     }
   }
-  
-  await tx.done;
-  
+
+  // Update the upload record with counts
+  await supabase
+    .from('uploads')
+    .update({
+      added_count: addedCount,
+      duplicates_skipped: duplicatesSkipped,
+    })
+    .eq('id', uploadId);
+
   // Get total count
-  const totalRows = await database.count('clarifications');
-  
-  // Save upload record
-  const upload: Upload = {
-    id: uploadId,
-    filename,
-    sheet_name: sheetName,
-    uploaded_at: new Date().toISOString(),
-    total_rows_in_file: rows.length,
-    added_count: addedCount,
-    duplicates_skipped: duplicatesSkipped,
-  };
-  
-  await database.add('uploads', upload);
-  
+  const { count: totalRows } = await supabase
+    .from('clarifications')
+    .select('*', { count: 'exact', head: true });
+
   return {
     success: true,
     upload_id: uploadId,
     added_count: addedCount,
     duplicates_skipped: duplicatesSkipped,
-    total_rows: totalRows,
+    total_rows: totalRows || 0,
   };
 }
 
@@ -147,37 +113,54 @@ export interface FilterOptions {
 }
 
 export async function getClarifications(filters?: FilterOptions): Promise<Clarification[]> {
-  const database = await getDB();
-  let clarifications = await database.getAll('clarifications');
-  
+  let query = supabase.from('clarifications').select('*');
+
   if (filters) {
+    if (filters.status) {
+      query = query.eq('status', filters.status);
+    }
+    if (filters.priority) {
+      query = query.eq('priority', filters.priority);
+    }
+    if (filters.module) {
+      query = query.eq('module', filters.module);
+    }
+    if (filters.assigned_to) {
+      query = query.eq('assigned_to', filters.assigned_to);
+    }
+    if (filters.date_from) {
+      query = query.gte('date', filters.date_from);
+    }
+    if (filters.date_to) {
+      query = query.lte('date', filters.date_to);
+    }
+  }
+
+  // Order by s_no if available, then by first_seen_at
+  query = query.order('s_no', { ascending: true, nullsFirst: false })
+               .order('first_seen_at', { ascending: false });
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Error fetching clarifications:', error);
+    return [];
+  }
+
+  let clarifications = (data || []) as Clarification[];
+
+  // Apply text search filter client-side if provided
+  if (filters?.search) {
+    const searchLower = filters.search.toLowerCase();
     clarifications = clarifications.filter(c => {
-      if (filters.status && c.status !== filters.status) return false;
-      if (filters.priority && c.priority !== filters.priority) return false;
-      if (filters.module && c.module !== filters.module) return false;
-      if (filters.assigned_to && c.assigned_to !== filters.assigned_to) return false;
-      if (filters.date_from && c.date < filters.date_from) return false;
-      if (filters.date_to && c.date > filters.date_to) return false;
-      if (filters.search) {
-        const searchLower = filters.search.toLowerCase();
-        const searchableText = [
-          c.module, c.scenario_steps, c.status, c.offshore_comments,
-          c.onsite_comments, c.reason, c.assigned_to, c.priority
-        ].join(' ').toLowerCase();
-        if (!searchableText.includes(searchLower)) return false;
-      }
-      return true;
+      const searchableText = [
+        c.module, c.scenario_steps, c.status, c.offshore_comments,
+        c.onsite_comments, c.reason, c.assigned_to, c.priority
+      ].join(' ').toLowerCase();
+      return searchableText.includes(searchLower);
     });
   }
-  
-  // Sort by s_no or first_seen_at
-  clarifications.sort((a, b) => {
-    if (a.s_no !== null && b.s_no !== null) {
-      return a.s_no - b.s_no;
-    }
-    return new Date(b.first_seen_at).getTime() - new Date(a.first_seen_at).getTime();
-  });
-  
+
   return clarifications;
 }
 
@@ -188,42 +171,52 @@ export async function getFilterOptions(): Promise<{
   modules: string[];
   assignees: string[];
 }> {
-  const clarifications = await getClarifications();
+  const { data } = await supabase.from('clarifications').select('status, priority, module, assigned_to');
   
-  const statuses = [...new Set(clarifications.map(c => c.status).filter(Boolean))];
-  const priorities = [...new Set(clarifications.map(c => c.priority).filter(Boolean))];
-  const modules = [...new Set(clarifications.map(c => c.module).filter(Boolean))];
-  const assignees = [...new Set(clarifications.map(c => c.assigned_to).filter(Boolean))];
-  
+  if (!data) {
+    return { statuses: [], priorities: [], modules: [], assignees: [] };
+  }
+
+  const statuses = [...new Set(data.map(c => c.status).filter(Boolean))];
+  const priorities = [...new Set(data.map(c => c.priority).filter(Boolean))];
+  const modules = [...new Set(data.map(c => c.module).filter(Boolean))];
+  const assignees = [...new Set(data.map(c => c.assigned_to).filter(Boolean))];
+
   return { statuses, priorities, modules, assignees };
 }
 
 // Get upload history
 export async function getUploads(): Promise<Upload[]> {
-  const database = await getDB();
-  const uploads = await database.getAll('uploads');
-  return uploads.sort((a, b) => 
-    new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime()
-  );
+  const { data, error } = await supabase
+    .from('uploads')
+    .select('*')
+    .order('uploaded_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching uploads:', error);
+    return [];
+  }
+
+  return (data || []) as Upload[];
 }
 
 // Get statistics
 export async function getStats(): Promise<ClarificationStats> {
-  const clarifications = await getClarifications();
+  const { data: clarifications } = await supabase.from('clarifications').select('status, priority, module');
   const uploads = await getUploads();
-  
+
   const byStatus: Record<string, number> = {};
   const byPriority: Record<string, number> = {};
   const byModule: Record<string, number> = {};
-  
-  for (const c of clarifications) {
+
+  for (const c of clarifications || []) {
     if (c.status) byStatus[c.status] = (byStatus[c.status] || 0) + 1;
     if (c.priority) byPriority[c.priority] = (byPriority[c.priority] || 0) + 1;
     if (c.module) byModule[c.module] = (byModule[c.module] || 0) + 1;
   }
-  
+
   return {
-    total: clarifications.length,
+    total: clarifications?.length || 0,
     byStatus,
     byPriority,
     byModule,
@@ -231,9 +224,8 @@ export async function getStats(): Promise<ClarificationStats> {
   };
 }
 
-// Clear all data (for testing)
+// Clear all data
 export async function clearAllData(): Promise<void> {
-  const database = await getDB();
-  await database.clear('clarifications');
-  await database.clear('uploads');
+  await supabase.from('clarifications').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  await supabase.from('uploads').delete().neq('id', '00000000-0000-0000-0000-000000000000');
 }
