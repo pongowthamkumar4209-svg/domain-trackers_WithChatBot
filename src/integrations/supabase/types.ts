@@ -14,7 +14,102 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      clarifications: {
+        Row: {
+          addressed_by: string
+          assigned_to: string
+          date: string
+          defect_should_be_raised: string
+          first_seen_at: string
+          id: string
+          module: string
+          offshore_comments: string
+          offshore_reviewer: string
+          onsite_comments: string
+          open: string
+          priority: string
+          reason: string
+          row_hash: string
+          s_no: number | null
+          scenario_steps: string
+          source_upload_id: string | null
+          status: string
+          teater: string
+        }
+        Insert: {
+          addressed_by?: string
+          assigned_to?: string
+          date?: string
+          defect_should_be_raised?: string
+          first_seen_at?: string
+          id?: string
+          module?: string
+          offshore_comments?: string
+          offshore_reviewer?: string
+          onsite_comments?: string
+          open?: string
+          priority?: string
+          reason?: string
+          row_hash: string
+          s_no?: number | null
+          scenario_steps?: string
+          source_upload_id?: string | null
+          status?: string
+          teater?: string
+        }
+        Update: {
+          addressed_by?: string
+          assigned_to?: string
+          date?: string
+          defect_should_be_raised?: string
+          first_seen_at?: string
+          id?: string
+          module?: string
+          offshore_comments?: string
+          offshore_reviewer?: string
+          onsite_comments?: string
+          open?: string
+          priority?: string
+          reason?: string
+          row_hash?: string
+          s_no?: number | null
+          scenario_steps?: string
+          source_upload_id?: string | null
+          status?: string
+          teater?: string
+        }
+        Relationships: []
+      }
+      uploads: {
+        Row: {
+          added_count: number
+          duplicates_skipped: number
+          filename: string
+          id: string
+          sheet_name: string
+          total_rows_in_file: number
+          uploaded_at: string
+        }
+        Insert: {
+          added_count?: number
+          duplicates_skipped?: number
+          filename: string
+          id?: string
+          sheet_name: string
+          total_rows_in_file?: number
+          uploaded_at?: string
+        }
+        Update: {
+          added_count?: number
+          duplicates_skipped?: number
+          filename?: string
+          id?: string
+          sheet_name?: string
+          total_rows_in_file?: number
+          uploaded_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
