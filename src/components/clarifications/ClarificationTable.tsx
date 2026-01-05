@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -13,6 +13,7 @@ import {
 } from '@tanstack/react-table';
 import { Clarification, COLUMN_LABELS } from '@/types/clarification';
 import { formatDisplayDate } from '@/services/excelParser';
+import { ColumnFilters, ColumnFilter, applyColumnFilters } from './ColumnFilters';
 import {
   Table,
   TableBody,
@@ -49,6 +50,7 @@ interface ClarificationTableProps {
   onRowClick?: (row: Clarification) => void;
   globalFilter?: string;
   onGlobalFilterChange?: (value: string) => void;
+  highlightedRowId?: string | null;
 }
 
 export function ClarificationTable({
@@ -56,15 +58,35 @@ export function ClarificationTable({
   onRowClick,
   globalFilter = '',
   onGlobalFilterChange,
+  highlightedRowId,
 }: ClarificationTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [excelFilters, setExcelFilters] = useState<ColumnFilter[]>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
     offshore_reviewer: false,
     teater: false,
     open: false,
     defect_should_be_raised: false,
+    keywords: false,
   });
+  
+  const rowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map());
+
+  // Apply Excel-style filters to data
+  const filteredData = useMemo(() => {
+    return applyColumnFilters(data, excelFilters);
+  }, [data, excelFilters]);
+
+  // Scroll to highlighted row
+  useEffect(() => {
+    if (highlightedRowId) {
+      const rowEl = rowRefs.current.get(highlightedRowId);
+      if (rowEl) {
+        rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [highlightedRowId]);
 
   const columns = useMemo<ColumnDef<Clarification>[]>(
     () => [
@@ -151,6 +173,48 @@ export function ClarificationTable({
         cell: ({ row }) => formatDisplayDate(row.getValue('date')) || '-',
       },
       {
+        accessorKey: 'keywords',
+        header: 'Keywords',
+        size: 200,
+        cell: ({ row }) => {
+          const keywords = row.getValue('keywords') as string;
+          if (!keywords) return '-';
+          const keywordList = keywords.split(',').slice(0, 5);
+          return (
+            <div className="flex flex-wrap gap-1">
+              {keywordList.map((kw, idx) => (
+                <span
+                  key={idx}
+                  className="inline-flex items-center rounded-full bg-accent px-1.5 py-0.5 text-xs"
+                >
+                  {kw.trim()}
+                </span>
+              ))}
+              {keywords.split(',').length > 5 && (
+                <span className="text-xs text-muted-foreground">+{keywords.split(',').length - 5}</span>
+              )}
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: 'open',
+        header: 'Open',
+        size: 80,
+        cell: ({ row }) => {
+          const open = row.getValue('open') as string;
+          const openClass =
+            open?.toLowerCase() === 'closed'
+              ? 'bg-success/10 text-success'
+              : 'bg-warning/10 text-warning';
+          return (
+            <span className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${openClass}`}>
+              {open || '-'}
+            </span>
+          );
+        },
+      },
+      {
         accessorKey: 'offshore_comments',
         header: 'Offshore Comments',
         size: 200,
@@ -205,11 +269,6 @@ export function ClarificationTable({
         size: 120,
       },
       {
-        accessorKey: 'open',
-        header: 'Open',
-        size: 80,
-      },
-      {
         accessorKey: 'defect_should_be_raised',
         header: 'Defect should be raised',
         size: 150,
@@ -219,7 +278,7 @@ export function ClarificationTable({
   );
 
   const table = useReactTable({
-    data,
+    data: filteredData,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -279,6 +338,13 @@ export function ClarificationTable({
         </DropdownMenu>
       </div>
 
+      {/* Excel-style Column Filters */}
+      <ColumnFilters
+        data={data}
+        filters={excelFilters}
+        onFiltersChange={setExcelFilters}
+      />
+
       {/* Table */}
       <div className="rounded-lg border">
         <div className="overflow-x-auto">
@@ -326,21 +392,27 @@ export function ClarificationTable({
                   </TableCell>
                 </TableRow>
               ) : (
-                table.getRowModel().rows.map((row, index) => (
-                  <TableRow
-                    key={row.id}
-                    className={`cursor-pointer hover:bg-muted/50 ${
-                      index % 2 === 0 ? 'bg-background' : 'bg-muted/30'
-                    }`}
-                    onClick={() => onRowClick?.(row.original)}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className="py-3">
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
+                table.getRowModel().rows.map((row, index) => {
+                  const isHighlighted = highlightedRowId === row.original.id;
+                  return (
+                    <TableRow
+                      key={row.id}
+                      ref={(el) => {
+                        if (el) rowRefs.current.set(row.original.id, el);
+                      }}
+                      className={`cursor-pointer hover:bg-muted/50 transition-all duration-300 ${
+                        index % 2 === 0 ? 'bg-background' : 'bg-muted/30'
+                      } ${isHighlighted ? 'ring-2 ring-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 animate-pulse' : ''}`}
+                      onClick={() => onRowClick?.(row.original)}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id} className="py-3">
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
@@ -359,6 +431,7 @@ export function ClarificationTable({
             )}
             {' of '}
             {table.getFilteredRowModel().rows.length} rows
+            {excelFilters.length > 0 && ` (filtered from ${data.length})`}
           </span>
         </div>
 

@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import { Clarification, COLUMN_MAPPING } from '@/types/clarification';
 import { generateRowHash } from './hashService';
+import { extractKeywordsFromRow } from './keywordService';
 
 const REQUIRED_SHEET = 'clarification';
 
@@ -150,6 +151,9 @@ export async function parseExcelFile(file: File): Promise<ParseResult> {
           }
         }
       }
+      
+      // Extract keywords from long text fields
+      row.keywords = extractKeywordsFromRow(row);
       
       // Generate hash for deduplication
       row.row_hash = await generateRowHash(row);

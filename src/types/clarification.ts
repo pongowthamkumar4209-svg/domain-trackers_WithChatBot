@@ -16,6 +16,7 @@ export interface Clarification {
   priority: string;
   assigned_to: string;
   reason: string;
+  keywords: string; // Auto-extracted keywords from long text fields
   row_hash: string;
   first_seen_at: string;
   source_upload_id: string;
@@ -57,6 +58,7 @@ export const COLUMN_LABELS: Record<keyof Omit<Clarification, 'id' | 'row_hash' |
   priority: 'Priority',
   assigned_to: 'Assigned To',
   reason: 'Reason',
+  keywords: 'Keywords',
 };
 
 // Upload record
@@ -94,6 +96,8 @@ export interface ClarificationStats {
   byStatus: Record<string, number>;
   byPriority: Record<string, number>;
   byModule: Record<string, number>;
+  openCount: number;
+  resolvedCount: number;
   recentUploads: Upload[];
 }
 

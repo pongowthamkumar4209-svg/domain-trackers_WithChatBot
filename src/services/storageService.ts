@@ -1,5 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Clarification, Upload, UploadResult, ClarificationStats } from '@/types/clarification';
+import { generateRowHash } from './hashService';
+import { extractKeywordsFromRow } from './keywordService';
 
 // Save clarifications with append-only logic
 export async function saveClarifications(
@@ -61,6 +63,7 @@ export async function saveClarifications(
           priority: row.priority || '',
           assigned_to: row.assigned_to || '',
           reason: row.reason || '',
+          keywords: row.keywords || '',
           row_hash: row.row_hash,
           source_upload_id: uploadId,
         });
@@ -99,6 +102,88 @@ export async function saveClarifications(
     duplicates_skipped: duplicatesSkipped,
     total_rows: totalRows || 0,
   };
+}
+
+// Create or update a single clarification (for manual add/edit)
+export async function saveSingleClarification(
+  data: Partial<Clarification>
+): Promise<{ success: boolean; error?: string; isDuplicate?: boolean }> {
+  // Extract keywords
+  const keywords = extractKeywordsFromRow(data);
+  
+  // Generate row hash for deduplication
+  const row_hash = await generateRowHash(data);
+  
+  // If editing existing row, update it
+  if (data.id) {
+    const { error } = await supabase
+      .from('clarifications')
+      .update({
+        s_no: data.s_no ?? null,
+        module: data.module || '',
+        scenario_steps: data.scenario_steps || '',
+        status: data.status || '',
+        offshore_comments: data.offshore_comments || '',
+        onsite_comments: data.onsite_comments || '',
+        date: data.date || '',
+        teater: data.teater || '',
+        offshore_reviewer: data.offshore_reviewer || '',
+        open: data.open || '',
+        addressed_by: data.addressed_by || '',
+        defect_should_be_raised: data.defect_should_be_raised || '',
+        priority: data.priority || '',
+        assigned_to: data.assigned_to || '',
+        reason: data.reason || '',
+        keywords,
+        row_hash,
+      })
+      .eq('id', data.id);
+    
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    return { success: true };
+  }
+  
+  // For new rows, check for duplicates
+  const { data: existing } = await supabase
+    .from('clarifications')
+    .select('id')
+    .eq('row_hash', row_hash)
+    .maybeSingle();
+  
+  if (existing) {
+    return { success: false, error: 'Duplicate row detected', isDuplicate: true };
+  }
+  
+  // Insert new row
+  const { error } = await supabase
+    .from('clarifications')
+    .insert({
+      s_no: data.s_no ?? null,
+      module: data.module || '',
+      scenario_steps: data.scenario_steps || '',
+      status: data.status || '',
+      offshore_comments: data.offshore_comments || '',
+      onsite_comments: data.onsite_comments || '',
+      date: data.date || '',
+      teater: data.teater || '',
+      offshore_reviewer: data.offshore_reviewer || '',
+      open: data.open || '',
+      addressed_by: data.addressed_by || '',
+      defect_should_be_raised: data.defect_should_be_raised || '',
+      priority: data.priority || '',
+      assigned_to: data.assigned_to || '',
+      reason: data.reason || '',
+      keywords,
+      row_hash,
+    });
+  
+  if (error) {
+    return { success: false, error: error.message };
+  }
+  
+  return { success: true };
 }
 
 // Get all clarifications with optional filters
@@ -200,19 +285,30 @@ export async function getUploads(): Promise<Upload[]> {
   return (data || []) as Upload[];
 }
 
-// Get statistics
+// Get statistics including Open vs Closed from 'open' column
 export async function getStats(): Promise<ClarificationStats> {
-  const { data: clarifications } = await supabase.from('clarifications').select('status, priority, module');
+  const { data: clarifications } = await supabase.from('clarifications').select('status, priority, module, open');
   const uploads = await getUploads();
 
   const byStatus: Record<string, number> = {};
   const byPriority: Record<string, number> = {};
   const byModule: Record<string, number> = {};
+  
+  let openCount = 0;
+  let resolvedCount = 0;
 
   for (const c of clarifications || []) {
     if (c.status) byStatus[c.status] = (byStatus[c.status] || 0) + 1;
     if (c.priority) byPriority[c.priority] = (byPriority[c.priority] || 0) + 1;
     if (c.module) byModule[c.module] = (byModule[c.module] || 0) + 1;
+    
+    // Count based on 'open' column
+    const openValue = (c.open || '').toLowerCase().trim();
+    if (openValue === 'closed') {
+      resolvedCount++;
+    } else if (openValue) {
+      openCount++;
+    }
   }
 
   return {
@@ -220,6 +316,8 @@ export async function getStats(): Promise<ClarificationStats> {
     byStatus,
     byPriority,
     byModule,
+    openCount,
+    resolvedCount,
     recentUploads: uploads.slice(0, 5),
   };
 }

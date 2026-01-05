@@ -4,12 +4,13 @@ import MainLayout from '@/components/layout/MainLayout';
 import { ClarificationTable } from '@/components/clarifications/ClarificationTable';
 import { DetailModal } from '@/components/clarifications/DetailModal';
 import { SearchBar } from '@/components/search/SearchBar';
-import { getClarifications } from '@/services/storageService';
+import { ClarificationForm } from '@/components/clarifications/ClarificationForm';
+import { getClarifications, getFilterOptions, saveSingleClarification } from '@/services/storageService';
 import { exportToCSV } from '@/services/exportService';
 import { Clarification, SearchResult } from '@/types/clarification';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Download } from 'lucide-react';
+import { Download, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function SearchPage() {
@@ -17,14 +18,61 @@ export default function SearchPage() {
   const [clarifications, setClarifications] = useState<Clarification[]>([]);
   const [globalFilter, setGlobalFilter] = useState(searchParams.get('q') || '');
   const [selectedRow, setSelectedRow] = useState<Clarification | null>(null);
+  const [highlightedRowId, setHighlightedRowId] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editingRow, setEditingRow] = useState<Clarification | null>(null);
+  const [filterOptions, setFilterOptions] = useState({
+    statuses: [] as string[],
+    priorities: [] as string[],
+    modules: [] as string[],
+    assignees: [] as string[],
+  });
   const { toast } = useToast();
 
   useEffect(() => {
-    getClarifications().then(setClarifications);
+    const loadData = async () => {
+      const [rows, options] = await Promise.all([
+        getClarifications(),
+        getFilterOptions()
+      ]);
+      setClarifications(rows);
+      setFilterOptions(options);
+    };
+    loadData();
   }, []);
 
+  // Clear highlight after 3 seconds
+  useEffect(() => {
+    if (highlightedRowId) {
+      const timer = setTimeout(() => {
+        setHighlightedRowId(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightedRowId]);
+
   const handleResultSelect = (result: SearchResult) => {
+    setHighlightedRowId(result.row.id);
     setSelectedRow(result.row);
+  };
+
+  const handleRowClick = (row: Clarification) => {
+    setSelectedRow(row);
+  };
+
+  const handleEditClick = (row: Clarification) => {
+    setEditingRow(row);
+    setShowForm(true);
+    setSelectedRow(null);
+  };
+
+  const handleSaveRow = async (data: Partial<Clarification>) => {
+    const result = await saveSingleClarification(data);
+    if (result.success) {
+      const rows = await getClarifications();
+      setClarifications(rows);
+    }
+    return result;
   };
 
   const handleExport = () => {
@@ -40,10 +88,16 @@ export default function SearchPage() {
             <h1 className="text-3xl font-display tracking-wide">Search</h1>
             <p className="text-muted-foreground">Find clarifications with fuzzy search</p>
           </div>
-          <Button variant="outline" onClick={handleExport} className="gap-2">
-            <Download className="h-4 w-4" />
-            Export CSV
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handleExport} className="gap-2">
+              <Download className="h-4 w-4" />
+              Export CSV
+            </Button>
+            <Button onClick={() => { setEditingRow(null); setShowForm(true); }} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Add Row
+            </Button>
+          </div>
         </div>
 
         <Card>
@@ -54,9 +108,10 @@ export default function SearchPage() {
 
         <ClarificationTable
           data={clarifications}
-          onRowClick={setSelectedRow}
+          onRowClick={handleRowClick}
           globalFilter={globalFilter}
           onGlobalFilterChange={setGlobalFilter}
+          highlightedRowId={highlightedRowId}
         />
       </div>
 
@@ -64,6 +119,18 @@ export default function SearchPage() {
         clarification={selectedRow}
         open={!!selectedRow}
         onOpenChange={(open) => !open && setSelectedRow(null)}
+        onEdit={handleEditClick}
+      />
+
+      <ClarificationForm
+        open={showForm}
+        onOpenChange={(open) => {
+          setShowForm(open);
+          if (!open) setEditingRow(null);
+        }}
+        clarification={editingRow}
+        onSave={handleSaveRow}
+        filterOptions={filterOptions}
       />
     </MainLayout>
   );
