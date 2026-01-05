@@ -145,16 +145,19 @@ export async function saveSingleClarification(
     return { success: true };
   }
   
-  // For new rows, check for duplicates based on scenario_steps
-  const scenarioSteps = (data.scenario_steps || '').trim();
+  // For new rows, check for duplicates based on scenario_steps (case-insensitive, trimmed)
+  const scenarioSteps = (data.scenario_steps || '').trim().toLowerCase();
   if (scenarioSteps) {
-    const { data: existing } = await supabase
+    // Fetch all and compare client-side for case-insensitive matching
+    const { data: allRows } = await supabase
       .from('clarifications')
-      .select('id')
-      .eq('scenario_steps', scenarioSteps)
-      .maybeSingle();
+      .select('id, scenario_steps');
     
-    if (existing) {
+    const isDuplicate = (allRows || []).some(row => 
+      (row.scenario_steps || '').trim().toLowerCase() === scenarioSteps
+    );
+    
+    if (isDuplicate) {
       return { success: false, error: 'A row with the same Scenario/Steps already exists', isDuplicate: true };
     }
   }
