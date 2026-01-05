@@ -1,14 +1,6 @@
 import keyword_extractor from 'keyword-extractor';
 
-// Fields to extract keywords from
-const KEYWORD_FIELDS: (keyof import('@/types/clarification').Clarification)[] = [
-  'scenario_steps',
-  'offshore_comments',
-  'onsite_comments',
-  'reason',
-];
-
-// Extract keywords from text using keyword-extractor library
+// Extract keywords only from scenario_steps field
 export function extractKeywords(text: string): string[] {
   if (!text || typeof text !== 'string') return [];
   
@@ -30,13 +22,11 @@ export function extractKeywords(text: string): string[] {
   }
 }
 
-// Extract keywords from a clarification row
+// Extract keywords from a clarification row (only from scenario_steps)
 export function extractKeywordsFromRow(row: Partial<import('@/types/clarification').Clarification>): string {
-  const allText = KEYWORD_FIELDS
-    .map(field => row[field] || '')
-    .join(' ');
+  const text = row.scenario_steps || '';
   
-  const keywords = extractKeywords(allText);
+  const keywords = extractKeywords(text);
   
   // Remove duplicates and return comma-separated
   const uniqueKeywords = [...new Set(keywords)];
