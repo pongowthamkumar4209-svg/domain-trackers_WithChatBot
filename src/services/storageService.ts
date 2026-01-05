@@ -145,15 +145,18 @@ export async function saveSingleClarification(
     return { success: true };
   }
   
-  // For new rows, check for duplicates
-  const { data: existing } = await supabase
-    .from('clarifications')
-    .select('id')
-    .eq('row_hash', row_hash)
-    .maybeSingle();
-  
-  if (existing) {
-    return { success: false, error: 'Duplicate row detected', isDuplicate: true };
+  // For new rows, check for duplicates based on scenario_steps
+  const scenarioSteps = (data.scenario_steps || '').trim();
+  if (scenarioSteps) {
+    const { data: existing } = await supabase
+      .from('clarifications')
+      .select('id')
+      .eq('scenario_steps', scenarioSteps)
+      .maybeSingle();
+    
+    if (existing) {
+      return { success: false, error: 'A row with the same Scenario/Steps already exists', isDuplicate: true };
+    }
   }
   
   // Insert new row

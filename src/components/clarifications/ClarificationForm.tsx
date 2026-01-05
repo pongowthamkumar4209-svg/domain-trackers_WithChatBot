@@ -285,11 +285,7 @@ export function ClarificationForm({
                       <FormItem>
                         <FormLabel>{COLUMN_LABELS.assigned_to}</FormLabel>
                         <FormControl>
-                          {filterOptions.assignees.length > 0 ? (
-                            renderSelectWithCustom(field, filterOptions.assignees, 'Select assignee')
-                          ) : (
-                            <Input {...field} />
-                          )}
+                          <Input {...field} placeholder="Enter assignee name" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
