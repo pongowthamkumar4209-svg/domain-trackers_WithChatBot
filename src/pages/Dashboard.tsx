@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button';
 import { SearchBar } from '@/components/search/SearchBar';
 import { DetailModal } from '@/components/clarifications/DetailModal';
 import { ClarificationTable } from '@/components/clarifications/ClarificationTable';
+import { ClarificationForm } from '@/components/clarifications/ClarificationForm';
 import { DropZone } from '@/components/upload/DropZone';
 import { UploadBanner } from '@/components/upload/UploadBanner';
-import { getStats, getClarifications, saveClarifications } from '@/services/storageService';
+import { getStats, getClarifications, saveClarifications, getFilterOptions, saveSingleClarification } from '@/services/storageService';
 import { parseExcelFile } from '@/services/excelParser';
 import { ClarificationStats, Clarification, SearchResult, UploadResult } from '@/types/clarification';
 import { useToast } from '@/hooks/use-toast';
@@ -17,27 +18,42 @@ import {
   FileSpreadsheet, 
   BarChart3, 
   TrendingUp,
-  Users,
   AlertCircle,
   CheckCircle,
-  Loader2
+  Loader2,
+  Plus,
+  Edit
 } from 'lucide-react';
 
 export default function Dashboard() {
   const [stats, setStats] = useState<ClarificationStats | null>(null);
   const [clarifications, setClarifications] = useState<Clarification[]>([]);
   const [selectedRow, setSelectedRow] = useState<Clarification | null>(null);
+  const [highlightedRowId, setHighlightedRowId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<UploadResult & { filename: string } | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editingRow, setEditingRow] = useState<Clarification | null>(null);
+  const [filterOptions, setFilterOptions] = useState({
+    statuses: [] as string[],
+    priorities: [] as string[],
+    modules: [] as string[],
+    assignees: [] as string[],
+  });
   const { toast } = useToast();
 
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [statsData, rows] = await Promise.all([getStats(), getClarifications()]);
+      const [statsData, rows, options] = await Promise.all([
+        getStats(), 
+        getClarifications(),
+        getFilterOptions()
+      ]);
       setStats(statsData);
       setClarifications(rows);
+      setFilterOptions(options);
     } finally {
       setIsLoading(false);
     }
@@ -47,8 +63,39 @@ export default function Dashboard() {
     loadData();
   }, []);
 
+  // Clear highlight after 3 seconds
+  useEffect(() => {
+    if (highlightedRowId) {
+      const timer = setTimeout(() => {
+        setHighlightedRowId(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightedRowId]);
+
   const handleResultSelect = (result: SearchResult) => {
+    // Highlight the row and scroll to it
+    setHighlightedRowId(result.row.id);
+    // Also open the detail modal
     setSelectedRow(result.row);
+  };
+
+  const handleRowClick = (row: Clarification) => {
+    setSelectedRow(row);
+  };
+
+  const handleEditClick = (row: Clarification) => {
+    setEditingRow(row);
+    setShowForm(true);
+    setSelectedRow(null);
+  };
+
+  const handleSaveRow = async (data: Partial<Clarification>) => {
+    const result = await saveSingleClarification(data);
+    if (result.success) {
+      await loadData();
+    }
+    return result;
   };
 
   const handleFileSelect = async (file: File) => {
@@ -85,20 +132,26 @@ export default function Dashboard() {
     }
   };
 
-  const statusCounts = stats?.byStatus || {};
-  const priorityCounts = stats?.byPriority || {};
-
   return (
     <MainLayout>
       <div className="space-y-8">
         {/* Header Section */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800 p-8 text-white shadow-xl">
           <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-50" />
-          <div className="relative z-10">
-            <h1 className="text-4xl font-display tracking-wide mb-2">Welcome Back</h1>
-            <p className="text-white/70 text-lg">
-              Manage and search your clarification data efficiently
-            </p>
+          <div className="relative z-10 flex items-center justify-between">
+            <div>
+              <h1 className="text-4xl font-display tracking-wide mb-2">Welcome Back</h1>
+              <p className="text-white/70 text-lg">
+                Manage and search your clarification data efficiently
+              </p>
+            </div>
+            <Button 
+              onClick={() => { setEditingRow(null); setShowForm(true); }}
+              className="bg-emerald-500 hover:bg-emerald-600"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Row
+            </Button>
           </div>
           <div className="absolute -bottom-10 -right-10 h-40 w-40 rounded-full bg-emerald-500/20 blur-3xl" />
           <div className="absolute -top-10 -left-10 h-32 w-32 rounded-full bg-cyan-500/20 blur-3xl" />
@@ -136,8 +189,8 @@ export default function Dashboard() {
               <AlertCircle className="h-5 w-5 text-white/70" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{statusCounts['Open'] || statusCounts['open'] || 0}</div>
-              <p className="text-xs text-white/70 mt-1">Pending resolution</p>
+              <div className="text-3xl font-bold">{stats?.openCount || 0}</div>
+              <p className="text-xs text-white/70 mt-1">Open ≠ 'Closed'</p>
             </CardContent>
             <div className="absolute -bottom-4 -right-4 h-20 w-20 rounded-full bg-white/10 blur-2xl" />
           </Card>
@@ -148,8 +201,8 @@ export default function Dashboard() {
               <CheckCircle className="h-5 w-5 text-white/70" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{statusCounts['Closed'] || statusCounts['closed'] || statusCounts['Resolved'] || 0}</div>
-              <p className="text-xs text-white/70 mt-1">Completed items</p>
+              <div className="text-3xl font-bold">{stats?.resolvedCount || 0}</div>
+              <p className="text-xs text-white/70 mt-1">Open = 'Closed'</p>
             </CardContent>
             <div className="absolute -bottom-4 -right-4 h-20 w-20 rounded-full bg-white/10 blur-2xl" />
           </Card>
@@ -160,7 +213,7 @@ export default function Dashboard() {
               <TrendingUp className="h-5 w-5 text-white/70" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{priorityCounts['High'] || priorityCounts['high'] || 0}</div>
+              <div className="text-3xl font-bold">{stats?.byPriority?.['High'] || stats?.byPriority?.['high'] || 0}</div>
               <p className="text-xs text-white/70 mt-1">Urgent attention needed</p>
             </CardContent>
             <div className="absolute -bottom-4 -right-4 h-20 w-20 rounded-full bg-white/10 blur-2xl" />
@@ -175,7 +228,7 @@ export default function Dashboard() {
               Quick Search
             </CardTitle>
             <CardDescription>
-              Search across all clarification data with fuzzy matching
+              Search across all clarification data with fuzzy matching. Click a result to highlight and view details.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -191,7 +244,7 @@ export default function Dashboard() {
               Upload Excel File
             </CardTitle>
             <CardDescription>
-              Upload an Excel file with a "clarification" sheet. Unique rows will be added to existing data.
+              Upload an Excel file with a "clarification" sheet. Keywords will be auto-extracted and unique rows added.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -221,13 +274,14 @@ export default function Dashboard() {
                 Clarification Data
               </CardTitle>
               <CardDescription>
-                {clarifications.length} total records • Click a row to view details
+                {clarifications.length} total records • Click a row to view details • Use filters to narrow down
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <ClarificationTable 
                 data={clarifications} 
-                onRowClick={setSelectedRow} 
+                onRowClick={handleRowClick}
+                highlightedRowId={highlightedRowId}
               />
             </CardContent>
           </Card>
@@ -239,8 +293,12 @@ export default function Dashboard() {
               </div>
               <h3 className="text-xl font-medium">No data yet</h3>
               <p className="text-muted-foreground text-center mt-2 mb-6 max-w-md">
-                Upload an Excel file with a "clarification" sheet to get started. The data will be saved and you can add more files later.
+                Upload an Excel file with a "clarification" sheet or add rows manually to get started.
               </p>
+              <Button onClick={() => { setEditingRow(null); setShowForm(true); }}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add First Row
+              </Button>
             </CardContent>
           </Card>
         )}
@@ -250,6 +308,18 @@ export default function Dashboard() {
         clarification={selectedRow}
         open={!!selectedRow}
         onOpenChange={(open) => !open && setSelectedRow(null)}
+        onEdit={handleEditClick}
+      />
+
+      <ClarificationForm
+        open={showForm}
+        onOpenChange={(open) => {
+          setShowForm(open);
+          if (!open) setEditingRow(null);
+        }}
+        clarification={editingRow}
+        onSave={handleSaveRow}
+        filterOptions={filterOptions}
       />
     </MainLayout>
   );

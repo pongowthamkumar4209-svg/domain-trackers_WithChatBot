@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Copy, Check } from 'lucide-react';
+import { Copy, Check, Edit } from 'lucide-react';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -16,9 +16,11 @@ interface DetailModalProps {
   clarification: Clarification | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onEdit?: (clarification: Clarification) => void;
+  highlightTerms?: string[];
 }
 
-export function DetailModal({ clarification, open, onOpenChange }: DetailModalProps) {
+export function DetailModal({ clarification, open, onOpenChange, onEdit, highlightTerms = [] }: DetailModalProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -35,6 +37,17 @@ export function DetailModal({ clarification, open, onOpenChange }: DetailModalPr
     }
   };
 
+  // Highlight matching terms in text
+  const highlightText = (text: string): string => {
+    if (!highlightTerms.length || !text) return text;
+    let result = text;
+    for (const term of highlightTerms) {
+      const regex = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+      result = result.replace(regex, '<mark class="bg-yellow-200 dark:bg-yellow-800 px-0.5 rounded">$1</mark>');
+    }
+    return result;
+  };
+
   const fields: { key: keyof Clarification; label: string; isLong?: boolean }[] = [
     { key: 's_no', label: COLUMN_LABELS.s_no },
     { key: 'module', label: COLUMN_LABELS.module },
@@ -43,6 +56,7 @@ export function DetailModal({ clarification, open, onOpenChange }: DetailModalPr
     { key: 'priority', label: COLUMN_LABELS.priority },
     { key: 'assigned_to', label: COLUMN_LABELS.assigned_to },
     { key: 'date', label: COLUMN_LABELS.date },
+    { key: 'keywords', label: COLUMN_LABELS.keywords },
     { key: 'offshore_comments', label: COLUMN_LABELS.offshore_comments, isLong: true },
     { key: 'onsite_comments', label: COLUMN_LABELS.onsite_comments, isLong: true },
     { key: 'reason', label: COLUMN_LABELS.reason, isLong: true },
@@ -63,11 +77,19 @@ export function DetailModal({ clarification, open, onOpenChange }: DetailModalPr
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <span className="text-muted-foreground">#{clarification.s_no || 'N/A'}</span>
-            <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
-              {clarification.module || 'Unknown Module'}
-            </span>
+          <DialogTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">#{clarification.s_no || 'N/A'}</span>
+              <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+                {clarification.module || 'Unknown Module'}
+              </span>
+            </div>
+            {onEdit && (
+              <Button variant="outline" size="sm" onClick={() => onEdit(clarification)}>
+                <Edit className="h-4 w-4 mr-1" />
+                Edit
+              </Button>
+            )}
           </DialogTitle>
         </DialogHeader>
 
@@ -126,6 +148,19 @@ export function DetailModal({ clarification, open, onOpenChange }: DetailModalPr
                       >
                         {value}
                       </span>
+                    ) : key === 'keywords' ? (
+                      <div className="flex flex-wrap gap-1">
+                        {value.split(',').filter(Boolean).map((kw, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center rounded-full bg-accent px-2 py-0.5 text-xs"
+                          >
+                            {kw.trim()}
+                          </span>
+                        ))}
+                      </div>
+                    ) : isLong && highlightTerms.length > 0 ? (
+                      <span dangerouslySetInnerHTML={{ __html: highlightText(value) }} />
                     ) : (
                       value
                     )}

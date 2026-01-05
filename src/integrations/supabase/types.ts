@@ -22,6 +22,7 @@ export type Database = {
           defect_should_be_raised: string
           first_seen_at: string
           id: string
+          keywords: string | null
           module: string
           offshore_comments: string
           offshore_reviewer: string
@@ -43,6 +44,7 @@ export type Database = {
           defect_should_be_raised?: string
           first_seen_at?: string
           id?: string
+          keywords?: string | null
           module?: string
           offshore_comments?: string
           offshore_reviewer?: string
@@ -64,6 +66,7 @@ export type Database = {
           defect_should_be_raised?: string
           first_seen_at?: string
           id?: string
+          keywords?: string | null
           module?: string
           offshore_comments?: string
           offshore_reviewer?: string
