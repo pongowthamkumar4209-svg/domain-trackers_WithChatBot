@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      bot_search_logs: {
+        Row: {
+          created_at: string
+          id: string
+          match_count: number
+          search_term: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          match_count?: number
+          search_term: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          match_count?: number
+          search_term?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       clarifications: {
         Row: {
           addressed_by: string
@@ -118,7 +142,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       [_ in never]: never

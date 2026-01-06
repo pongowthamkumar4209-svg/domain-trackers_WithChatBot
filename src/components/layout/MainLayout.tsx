@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Header from './Header';
 import Sidebar from './Sidebar';
+import ChatLauncher from '@/components/chatbot/ChatLauncher';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 interface MainLayoutProps {
@@ -58,6 +59,9 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           <main className="flex-1 p-4 md:p-6 lg:p-8">{children}</main>
         </div>
       </div>
+
+      {/* Chatbot Launcher */}
+      <ChatLauncher />
     </div>
   );
 };
