@@ -186,13 +186,13 @@ const ChatWindow = ({ isOpen, onClose }: ChatWindowProps) => {
 
   return (
     <div
-      className="fixed bottom-24 right-4 z-[9999] w-[360px] max-w-[calc(100vw-2rem)] bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden"
+      className="fixed bottom-24 right-4 z-[9999] w-[360px] max-w-[calc(100vw-2rem)] h-[70vh] max-h-[600px] bg-card border border-border rounded-xl shadow-2xl flex flex-col"
       role="dialog"
       aria-label="CN Bot Chat"
       aria-modal="true"
     >
-      {/* Header - Close button always visible */}
-      <div className="bg-gradient-to-r from-violet-600 to-purple-600 px-3 py-3 flex items-center gap-2 min-w-0">
+      {/* Header - Sticky at top, never scrolls */}
+      <div className="sticky top-0 z-10 bg-gradient-to-r from-violet-600 to-purple-600 px-3 py-3 flex items-center gap-2 flex-shrink-0 rounded-t-xl">
         <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
           <Bot className="w-5 h-5 text-white" />
         </div>
@@ -203,15 +203,23 @@ const ChatWindow = ({ isOpen, onClose }: ChatWindowProps) => {
         <button
           type="button"
           onClick={onClose}
+          role="button"
           className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-md text-white bg-white/20 hover:bg-white/30 transition-colors focus:outline-none focus:ring-2 focus:ring-white/50"
           aria-label="Close chat"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onClose();
+            }
+          }}
         >
           <X className="w-5 h-5" />
         </button>
       </div>
 
-      {/* Messages Area */}
-      <ScrollArea className="flex-1 h-80" ref={scrollRef}>
+      {/* Messages Area - Scrollable content */}
+      <ScrollArea className="flex-1 min-h-0 overflow-y-auto" ref={scrollRef}>
         <div className="p-4 space-y-4">
           {messages.map((msg) => (
             <div
@@ -302,8 +310,8 @@ const ChatWindow = ({ isOpen, onClose }: ChatWindowProps) => {
         </div>
       </ScrollArea>
 
-      {/* Input Area */}
-      <div className="p-3 border-t border-border bg-background/50">
+      {/* Input Area - Sticky at bottom */}
+      <div className="flex-shrink-0 p-3 border-t border-border bg-background/50">
         <div className="flex gap-2">
           <Input
             ref={inputRef}
