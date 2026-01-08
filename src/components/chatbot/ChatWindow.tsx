@@ -186,29 +186,27 @@ const ChatWindow = ({ isOpen, onClose }: ChatWindowProps) => {
 
   return (
     <div
-      className="fixed bottom-24 right-6 z-50 w-96 max-w-[calc(100vw-3rem)] bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden"
+      className="fixed bottom-24 right-4 z-[9999] w-[360px] max-w-[calc(100vw-2rem)] bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden"
       role="dialog"
       aria-label="CN Bot Chat"
       aria-modal="true"
     >
-      {/* Header */}
-      <div className="bg-gradient-to-r from-violet-600 to-purple-600 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-            <Bot className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h2 className="text-white font-semibold text-sm">CN Bot</h2>
-            <p className="text-white/70 text-xs">Clarification Assistant</p>
-          </div>
+      {/* Header - Close button always visible */}
+      <div className="bg-gradient-to-r from-violet-600 to-purple-600 px-3 py-3 flex items-center gap-2 min-w-0">
+        <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
+          <Bot className="w-5 h-5 text-white" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-white font-semibold text-sm truncate">CN Bot</h2>
+          <p className="text-white/70 text-xs truncate">Clarification Assistant</p>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="flex items-center justify-center h-8 w-8 rounded-md text-white bg-white/10 hover:bg-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-white/50"
+          className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-md text-white bg-white/20 hover:bg-white/30 transition-colors focus:outline-none focus:ring-2 focus:ring-white/50"
           aria-label="Close chat"
         >
-          <X className="w-5 h-5 flex-shrink-0" />
+          <X className="w-5 h-5" />
         </button>
       </div>
 
