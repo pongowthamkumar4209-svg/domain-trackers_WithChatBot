@@ -49,8 +49,37 @@ const ChatWindow = ({ isOpen, onClose }: ChatWindowProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const hasGreetedRef = useRef(false);
 
   const debouncedInput = useDebounce(inputValue, 300);
+
+  // Text-to-speech function using Web Speech API
+  const speakText = useCallback((text: string) => {
+    if ('speechSynthesis' in window) {
+      // Cancel any ongoing speech
+      window.speechSynthesis.cancel();
+      
+      // Remove emoji from text for cleaner speech
+      const cleanText = text.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
+      
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      utterance.rate = 0.95;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+      
+      // Try to use a friendly voice
+      const voices = window.speechSynthesis.getVoices();
+      const preferredVoice = voices.find(v => 
+        v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Alex')
+      ) || voices.find(v => v.lang.startsWith('en'));
+      
+      if (preferredVoice) {
+        utterance.voice = preferredVoice;
+      }
+      
+      window.speechSynthesis.speak(utterance);
+    }
+  }, []);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -59,12 +88,21 @@ const ChatWindow = ({ isOpen, onClose }: ChatWindowProps) => {
     }
   }, [messages]);
 
-  // Focus input when opened
+  // Focus input and speak greeting when opened
   useEffect(() => {
-    if (isOpen && inputRef.current) {
+    if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 100);
+      
+      // Speak greeting only once per session
+      if (!hasGreetedRef.current && messages.length > 0 && messages[0].id === "welcome") {
+        hasGreetedRef.current = true;
+        // Small delay to ensure voices are loaded
+        setTimeout(() => {
+          speakText(messages[0].content);
+        }, 300);
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, messages, speakText]);
 
   // Reset when query changes
   useEffect(() => {
