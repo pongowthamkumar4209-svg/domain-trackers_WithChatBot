@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { X, Search, ArrowRight, Bot, User, Loader2 } from "lucide-react";
+import { X, Search, ArrowRight, Bot, User, Loader2, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -33,6 +33,7 @@ interface ChatWindowProps {
 }
 
 const ChatWindow = ({ isOpen, onClose }: ChatWindowProps) => {
+  const [isSoundEnabled, setIsSoundEnabled] = useState(true);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -53,8 +54,27 @@ const ChatWindow = ({ isOpen, onClose }: ChatWindowProps) => {
 
   const debouncedInput = useDebounce(inputValue, 300);
 
+  // Stop speech when sound is disabled
+  const stopSpeech = useCallback(() => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+  }, []);
+
+  // Toggle sound and stop any ongoing speech when disabled
+  const toggleSound = useCallback(() => {
+    setIsSoundEnabled(prev => {
+      if (prev) {
+        stopSpeech();
+      }
+      return !prev;
+    });
+  }, [stopSpeech]);
+
   // Text-to-speech function using Web Speech API
   const speakText = useCallback((text: string) => {
+    if (!isSoundEnabled) return;
+    
     if ('speechSynthesis' in window) {
       // Cancel any ongoing speech
       window.speechSynthesis.cancel();
@@ -79,7 +99,7 @@ const ChatWindow = ({ isOpen, onClose }: ChatWindowProps) => {
       
       window.speechSynthesis.speak(utterance);
     }
-  }, []);
+  }, [isSoundEnabled]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -238,6 +258,21 @@ const ChatWindow = ({ isOpen, onClose }: ChatWindowProps) => {
           <h2 className="text-white font-semibold text-sm truncate">CN Bot</h2>
           <p className="text-white/70 text-xs truncate">Clarification Assistant</p>
         </div>
+        <button
+          type="button"
+          onClick={toggleSound}
+          className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-md text-white bg-white/20 hover:bg-white/30 transition-colors focus:outline-none focus:ring-2 focus:ring-white/50"
+          aria-label={isSoundEnabled ? "Mute voice" : "Enable voice"}
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              toggleSound();
+            }
+          }}
+        >
+          {isSoundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+        </button>
         <button
           type="button"
           onClick={onClose}
