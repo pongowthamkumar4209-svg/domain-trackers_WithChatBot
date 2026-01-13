@@ -37,7 +37,7 @@ const ChatWindow = ({ isOpen, onClose }: ChatWindowProps) => {
     {
       id: "welcome",
       role: "bot",
-      content: "Hi! I'm CN Bot. Type keywords and I'll find matching clarifications.",
+      content: "👋 Hello! Welcome to the Railroad Clarification Portal. I'm CN Bot, your assistant for finding clarifications quickly. Just type a keyword (like module name, scenario, or issue) and I'll search through our records for you. How can I help you today?",
       timestamp: new Date(),
     },
   ]);
