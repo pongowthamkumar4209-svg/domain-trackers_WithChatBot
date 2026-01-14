@@ -171,52 +171,56 @@ export default function Dashboard() {
 
         {/* Stats Cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <Card className="stats-card-glow relative overflow-hidden border-0 bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 relative z-10">
               <CardTitle className="text-sm font-medium text-white/90">Total Records</CardTitle>
               <FileSpreadsheet className="h-5 w-5 text-white/70" />
             </CardHeader>
-            <CardContent>
+            <CardContent className="relative z-10">
               <div className="text-3xl font-bold">{stats?.total || 0}</div>
               <p className="text-xs text-white/70 mt-1">Clarification entries</p>
             </CardContent>
-            <div className="absolute -bottom-4 -right-4 h-20 w-20 rounded-full bg-white/10 blur-2xl" />
+            <div className="absolute -bottom-4 -right-4 h-24 w-24 rounded-full bg-white/20 blur-3xl" />
+            <div className="absolute top-0 left-0 h-16 w-16 rounded-full bg-white/10 blur-2xl" />
           </Card>
 
-          <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <Card className="stats-card-glow relative overflow-hidden border-0 bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 relative z-10">
               <CardTitle className="text-sm font-medium text-white/90">Open Items</CardTitle>
               <AlertCircle className="h-5 w-5 text-white/70" />
             </CardHeader>
-            <CardContent>
+            <CardContent className="relative z-10">
               <div className="text-3xl font-bold">{stats?.openCount || 0}</div>
               <p className="text-xs text-white/70 mt-1">Open ≠ 'Closed'</p>
             </CardContent>
-            <div className="absolute -bottom-4 -right-4 h-20 w-20 rounded-full bg-white/10 blur-2xl" />
+            <div className="absolute -bottom-4 -right-4 h-24 w-24 rounded-full bg-white/20 blur-3xl" />
+            <div className="absolute top-0 left-0 h-16 w-16 rounded-full bg-white/10 blur-2xl" />
           </Card>
 
-          <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <Card className="stats-card-glow relative overflow-hidden border-0 bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 relative z-10">
               <CardTitle className="text-sm font-medium text-white/90">Resolved</CardTitle>
               <CheckCircle className="h-5 w-5 text-white/70" />
             </CardHeader>
-            <CardContent>
+            <CardContent className="relative z-10">
               <div className="text-3xl font-bold">{stats?.resolvedCount || 0}</div>
               <p className="text-xs text-white/70 mt-1">Open = 'Closed'</p>
             </CardContent>
-            <div className="absolute -bottom-4 -right-4 h-20 w-20 rounded-full bg-white/10 blur-2xl" />
+            <div className="absolute -bottom-4 -right-4 h-24 w-24 rounded-full bg-white/20 blur-3xl" />
+            <div className="absolute top-0 left-0 h-16 w-16 rounded-full bg-white/10 blur-2xl" />
           </Card>
 
-          <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-rose-500 to-pink-600 text-white shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <Card className="stats-card-glow relative overflow-hidden border-0 bg-gradient-to-br from-rose-500 to-pink-600 text-white shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 relative z-10">
               <CardTitle className="text-sm font-medium text-white/90">High Priority</CardTitle>
               <TrendingUp className="h-5 w-5 text-white/70" />
             </CardHeader>
-            <CardContent>
+            <CardContent className="relative z-10">
               <div className="text-3xl font-bold">{stats?.byPriority?.['High'] || stats?.byPriority?.['high'] || 0}</div>
               <p className="text-xs text-white/70 mt-1">Urgent attention needed</p>
             </CardContent>
-            <div className="absolute -bottom-4 -right-4 h-20 w-20 rounded-full bg-white/10 blur-2xl" />
+            <div className="absolute -bottom-4 -right-4 h-24 w-24 rounded-full bg-white/20 blur-3xl" />
+            <div className="absolute top-0 left-0 h-16 w-16 rounded-full bg-white/10 blur-2xl" />
           </Card>
         </div>
 
