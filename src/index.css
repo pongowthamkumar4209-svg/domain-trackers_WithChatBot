@@ -168,6 +168,36 @@
   .gradient-text {
     @apply bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent;
   }
+
+  /* Glowing stats card effect */
+  .stats-card-glow {
+    position: relative;
+    animation: cardGlow 3s ease-in-out infinite;
+  }
+
+  .stats-card-glow::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: 
+      linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 40%, transparent 60%, rgba(255,255,255,0.1) 100%),
+      repeating-linear-gradient(45deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 2px, transparent 2px, transparent 8px);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .stats-card-glow::after {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: inherit;
+    background: inherit;
+    filter: blur(15px);
+    opacity: 0.6;
+    z-index: -1;
+    animation: glowPulse 2.5s ease-in-out infinite;
+  }
 }
 
 @layer utilities {
@@ -212,5 +242,19 @@
       opacity: 1;
       transform: translateX(0);
     }
+  }
+
+  @keyframes cardGlow {
+    0%, 100% { 
+      box-shadow: 0 4px 20px rgba(255,255,255,0.15), inset 0 1px 0 rgba(255,255,255,0.25); 
+    }
+    50% { 
+      box-shadow: 0 8px 35px rgba(255,255,255,0.25), inset 0 1px 0 rgba(255,255,255,0.35); 
+    }
+  }
+
+  @keyframes glowPulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 0.7; }
   }
 }
