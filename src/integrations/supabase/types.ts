@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          id: string
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          id?: string
+          key: string
+          updated_at?: string
+          value?: Json
+        }
+        Update: {
+          id?: string
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
+      audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          new_values: Json | null
+          old_values: Json | null
+          record_id: string
+          table_name: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id: string
+          table_name: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string
+          table_name?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       bot_search_logs: {
         Row: {
           created_at: string
@@ -42,11 +96,14 @@ export type Database = {
         Row: {
           addressed_by: string
           assigned_to: string
+          created_by: string | null
           date: string
           defect_should_be_raised: string
+          drop_name: string
           first_seen_at: string
           id: string
           keywords: string | null
+          legacy_fields: Json | null
           module: string
           offshore_comments: string
           offshore_reviewer: string
@@ -59,16 +116,21 @@ export type Database = {
           scenario_steps: string
           source_upload_id: string | null
           status: string
-          teater: string
+          tester: string
+          updated_at: string | null
+          updated_by: string | null
         }
         Insert: {
           addressed_by?: string
           assigned_to?: string
+          created_by?: string | null
           date?: string
           defect_should_be_raised?: string
+          drop_name?: string
           first_seen_at?: string
           id?: string
           keywords?: string | null
+          legacy_fields?: Json | null
           module?: string
           offshore_comments?: string
           offshore_reviewer?: string
@@ -81,16 +143,21 @@ export type Database = {
           scenario_steps?: string
           source_upload_id?: string | null
           status?: string
-          teater?: string
+          tester?: string
+          updated_at?: string | null
+          updated_by?: string | null
         }
         Update: {
           addressed_by?: string
           assigned_to?: string
+          created_by?: string | null
           date?: string
           defect_should_be_raised?: string
+          drop_name?: string
           first_seen_at?: string
           id?: string
           keywords?: string | null
+          legacy_fields?: Json | null
           module?: string
           offshore_comments?: string
           offshore_reviewer?: string
@@ -103,7 +170,36 @@ export type Database = {
           scenario_steps?: string
           source_upload_id?: string | null
           status?: string
-          teater?: string
+          tester?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          email: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -137,16 +233,44 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -273,6 +397,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const

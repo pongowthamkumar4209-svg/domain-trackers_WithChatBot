@@ -145,9 +145,9 @@ export async function parseExcelFile(file: File): Promise<ParseResult> {
           if (field === 's_no') {
             row[field] = value ? parseInt(String(value), 10) || null : null;
           } else if (field === 'date') {
-            row[field] = parseDate(value);
+            (row as any)[field] = parseDate(value);
           } else {
-            row[field] = String(value || '');
+            (row as any)[field] = String(value || '');
           }
         }
       }
