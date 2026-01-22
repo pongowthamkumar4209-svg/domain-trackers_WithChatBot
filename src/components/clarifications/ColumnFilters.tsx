@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Clarification } from '@/types/clarification';
+import { Clarification, STATUS_VALUES } from '@/types/clarification';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -24,7 +24,7 @@ interface ColumnFiltersProps {
 
 // Columns that should use multi-select choice filter
 const CHOICE_COLUMNS: (keyof Clarification)[] = [
-  'status', 'priority', 'module', 'assigned_to', 'open', 'teater', 'offshore_reviewer'
+  'status', 'priority', 'module', 'assigned_to', 'tester', 'offshore_reviewer'
 ];
 
 // Columns that should use date filter
@@ -193,13 +193,12 @@ export function ColumnFilters({ data, filters, onFiltersChange }: ColumnFiltersP
     { key: 'status', label: 'Status' },
     { key: 'priority', label: 'Priority' },
     { key: 'assigned_to', label: 'Assigned To' },
-    { key: 'open', label: 'Open' },
+    { key: 'drop_name', label: 'Drop Name' },
     { key: 'date', label: 'Date' },
     { key: 'scenario_steps', label: 'Scenario/Steps' },
     { key: 'offshore_comments', label: 'Offshore Comments' },
     { key: 'onsite_comments', label: 'Onsite Comments' },
-    { key: 'reason', label: 'Reason' },
-    { key: 'teater', label: 'Teater' },
+    { key: 'tester', label: 'Tester' },
     { key: 'offshore_reviewer', label: 'Offshore Reviewer' },
   ];
 

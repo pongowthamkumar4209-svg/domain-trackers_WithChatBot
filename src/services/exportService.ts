@@ -20,9 +20,9 @@ export function exportToCSV(
   filename = 'clarifications-export.csv'
 ): void {
   const columns: (keyof Clarification)[] = [
-    's_no', 'module', 'scenario_steps', 'status', 'offshore_comments',
-    'onsite_comments', 'date', 'teater', 'offshore_reviewer', 'open',
-    'addressed_by', 'defect_should_be_raised', 'priority', 'assigned_to', 'reason'
+    's_no', 'module', 'scenario_steps', 'status', 'priority', 'drop_name',
+    'offshore_comments', 'onsite_comments', 'date', 'tester', 'offshore_reviewer',
+    'addressed_by', 'defect_should_be_raised', 'assigned_to'
   ];
   
   // Build header row

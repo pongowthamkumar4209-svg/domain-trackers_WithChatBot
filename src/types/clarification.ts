@@ -4,23 +4,35 @@ export interface Clarification {
   s_no: number | null;
   module: string;
   scenario_steps: string; // "Scenario/Steps to be Reproduce"
-  status: string;
+  status: string; // "Open" | "Open from Offshore" | "Closed"
   offshore_comments: string;
   onsite_comments: string;
   date: string; // ISO format
-  teater: string;
+  tester: string; // Renamed from teater
   offshore_reviewer: string;
-  open: string;
   addressed_by: string;
   defect_should_be_raised: string;
-  priority: string;
+  priority: string; // "P1" | "P2"
   assigned_to: string;
-  reason: string;
+  drop_name: string; // New field for additional details
   keywords: string; // Auto-extracted keywords from long text fields
   row_hash: string;
   first_seen_at: string;
   source_upload_id: string;
+  // Audit fields
+  created_by?: string;
+  updated_by?: string;
+  updated_at?: string;
+  legacy_fields?: Record<string, unknown>; // Stores original reason, open, status values
 }
+
+// Status dropdown values
+export const STATUS_VALUES = ['Open', 'Open from Offshore', 'Closed'] as const;
+export type StatusValue = typeof STATUS_VALUES[number];
+
+// Priority dropdown values
+export const PRIORITY_VALUES = ['P1', 'P2'] as const;
+export type PriorityValue = typeof PRIORITY_VALUES[number];
 
 // Column mapping from Excel headers to field names
 export const COLUMN_MAPPING: Record<string, keyof Clarification> = {
@@ -31,18 +43,19 @@ export const COLUMN_MAPPING: Record<string, keyof Clarification> = {
   'Offshore Comments': 'offshore_comments',
   'Onsite Comments': 'onsite_comments',
   'Date': 'date',
-  'teater': 'teater',
+  'tester': 'tester',
+  'Tester': 'tester',
+  'teater': 'tester', // Legacy mapping
   'Offshore Reviewer': 'offshore_reviewer',
-  'Open': 'open',
   'Addressed by': 'addressed_by',
   'Defect should be raised': 'defect_should_be_raised',
   'Priority': 'priority',
   'Assigned To': 'assigned_to',
-  'Reason': 'reason',
+  'Drop Name': 'drop_name',
 };
 
 // Display labels for table headers
-export const COLUMN_LABELS: Record<keyof Omit<Clarification, 'id' | 'row_hash' | 'first_seen_at' | 'source_upload_id'>, string> = {
+export const COLUMN_LABELS: Record<keyof Omit<Clarification, 'id' | 'row_hash' | 'first_seen_at' | 'source_upload_id' | 'created_by' | 'updated_by' | 'updated_at' | 'legacy_fields'>, string> = {
   s_no: 'S.No',
   module: 'Module',
   scenario_steps: 'Scenario/Steps to be Reproduce',
@@ -50,14 +63,13 @@ export const COLUMN_LABELS: Record<keyof Omit<Clarification, 'id' | 'row_hash' |
   offshore_comments: 'Offshore Comments',
   onsite_comments: 'Onsite Comments',
   date: 'Date',
-  teater: 'Teater',
+  tester: 'Tester',
   offshore_reviewer: 'Offshore Reviewer',
-  open: 'Open',
   addressed_by: 'Addressed by',
   defect_should_be_raised: 'Defect should be raised',
   priority: 'Priority',
   assigned_to: 'Assigned To',
-  reason: 'Reason',
+  drop_name: 'Drop Name',
   keywords: 'Keywords',
 };
 
@@ -110,4 +122,32 @@ export interface UploadResult {
   total_rows: number;
   error?: string;
   available_sheets?: string[];
+}
+
+// Calculate ageing in days for open items
+export function calculateAgeing(dateStr: string, status: string): number | null {
+  if (!['Open', 'Open from Offshore'].includes(status)) {
+    return null;
+  }
+  if (!dateStr) return null;
+  
+  try {
+    const createdDate = new Date(dateStr);
+    if (isNaN(createdDate.getTime())) return null;
+    
+    const today = new Date();
+    const diffTime = today.getTime() - createdDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return Math.max(0, diffDays);
+  } catch {
+    return null;
+  }
+}
+
+// Get ageing badge color class
+export function getAgeingBadgeClass(days: number | null): string {
+  if (days === null) return '';
+  if (days <= 3) return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+  if (days <= 7) return 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200';
+  return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
 }

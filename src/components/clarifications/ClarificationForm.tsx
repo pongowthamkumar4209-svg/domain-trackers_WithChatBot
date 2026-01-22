@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Clarification, COLUMN_LABELS } from '@/types/clarification';
+import { Clarification, COLUMN_LABELS, STATUS_VALUES, PRIORITY_VALUES } from '@/types/clarification';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,18 +17,17 @@ const clarificationSchema = z.object({
   s_no: z.number().nullable().optional(),
   module: z.string().min(1, 'Module is required').max(100),
   scenario_steps: z.string().max(5000),
-  status: z.string().max(50),
+  status: z.enum(['Open', 'Open from Offshore', 'Closed', '']),
   offshore_comments: z.string().max(5000),
   onsite_comments: z.string().max(5000),
   date: z.string(),
-  teater: z.string().max(100),
+  tester: z.string().max(100),
   offshore_reviewer: z.string().max(100),
-  open: z.string().max(50),
   addressed_by: z.string().max(100),
   defect_should_be_raised: z.string().max(100),
-  priority: z.string().max(50),
+  priority: z.enum(['P1', 'P2', '']),
   assigned_to: z.string().max(100),
-  reason: z.string().max(5000),
+  drop_name: z.string().max(200),
 });
 
 type ClarificationFormData = z.infer<typeof clarificationSchema>;
@@ -59,23 +58,7 @@ export function ClarificationForm({
 
   const form = useForm<ClarificationFormData>({
     resolver: zodResolver(clarificationSchema),
-    defaultValues: clarification ? {
-      s_no: clarification.s_no,
-      module: clarification.module,
-      scenario_steps: clarification.scenario_steps,
-      status: clarification.status,
-      offshore_comments: clarification.offshore_comments,
-      onsite_comments: clarification.onsite_comments,
-      date: clarification.date ? clarification.date.split('T')[0] : '',
-      teater: clarification.teater,
-      offshore_reviewer: clarification.offshore_reviewer,
-      open: clarification.open,
-      addressed_by: clarification.addressed_by,
-      defect_should_be_raised: clarification.defect_should_be_raised,
-      priority: clarification.priority,
-      assigned_to: clarification.assigned_to,
-      reason: clarification.reason,
-    } : {
+    defaultValues: {
       s_no: null,
       module: '',
       scenario_steps: '',
@@ -83,16 +66,57 @@ export function ClarificationForm({
       offshore_comments: '',
       onsite_comments: '',
       date: new Date().toISOString().split('T')[0],
-      teater: '',
+      tester: '',
       offshore_reviewer: '',
-      open: '',
       addressed_by: '',
       defect_should_be_raised: '',
       priority: '',
       assigned_to: '',
-      reason: '',
+      drop_name: '',
     },
   });
+
+  // Reset form when clarification changes or dialog opens
+  useEffect(() => {
+    if (open) {
+      if (clarification) {
+        form.reset({
+          s_no: clarification.s_no,
+          module: clarification.module,
+          scenario_steps: clarification.scenario_steps,
+          status: (STATUS_VALUES.includes(clarification.status as any) ? clarification.status : '') as any,
+          offshore_comments: clarification.offshore_comments,
+          onsite_comments: clarification.onsite_comments,
+          date: clarification.date ? clarification.date.split('T')[0] : '',
+          tester: clarification.tester,
+          offshore_reviewer: clarification.offshore_reviewer,
+          addressed_by: clarification.addressed_by,
+          defect_should_be_raised: clarification.defect_should_be_raised,
+          priority: (PRIORITY_VALUES.includes(clarification.priority as any) ? clarification.priority : '') as any,
+          assigned_to: clarification.assigned_to,
+          drop_name: clarification.drop_name || '',
+        });
+      } else {
+        // Clear form for new entry
+        form.reset({
+          s_no: null,
+          module: '',
+          scenario_steps: '',
+          status: '',
+          offshore_comments: '',
+          onsite_comments: '',
+          date: new Date().toISOString().split('T')[0],
+          tester: '',
+          offshore_reviewer: '',
+          addressed_by: '',
+          defect_should_be_raised: '',
+          priority: '',
+          assigned_to: '',
+          drop_name: '',
+        });
+      }
+    }
+  }, [open, clarification, form]);
 
   const onSubmit = async (data: ClarificationFormData) => {
     setIsSubmitting(true);
@@ -105,8 +129,8 @@ export function ClarificationForm({
 
       if (result.success) {
         toast({
-          title: isEdit ? 'Row updated' : 'Row created',
-          description: isEdit ? 'Clarification updated successfully.' : 'New clarification added.',
+          title: isEdit ? 'Clarification updated' : 'Clarification created successfully',
+          description: isEdit ? 'Changes saved.' : 'New clarification added.',
         });
         onOpenChange(false);
         form.reset();
@@ -128,25 +152,18 @@ export function ClarificationForm({
     }
   };
 
-  const renderSelectWithCustom = (
-    field: any,
-    options: string[],
-    placeholder: string
-  ) => (
-    <Select
-      value={field.value || ''}
-      onValueChange={field.onChange}
-    >
+  const renderModuleSelect = (field: any) => (
+    <Select value={field.value || ''} onValueChange={field.onChange}>
       <SelectTrigger>
-        <SelectValue placeholder={placeholder} />
+        <SelectValue placeholder="Select module" />
       </SelectTrigger>
       <SelectContent>
-        {options.map((opt) => (
+        {filterOptions.modules.map((opt) => (
           <SelectItem key={opt} value={opt}>
             {opt}
           </SelectItem>
         ))}
-        {field.value && !options.includes(field.value) && (
+        {field.value && !filterOptions.modules.includes(field.value) && (
           <SelectItem value={field.value}>{field.value} (custom)</SelectItem>
         )}
       </SelectContent>
@@ -192,7 +209,7 @@ export function ClarificationForm({
                         <FormLabel>{COLUMN_LABELS.module} *</FormLabel>
                         <FormControl>
                           {filterOptions.modules.length > 0 ? (
-                            renderSelectWithCustom(field, filterOptions.modules, 'Select module')
+                            renderModuleSelect(field)
                           ) : (
                             <Input {...field} />
                           )}
@@ -225,11 +242,18 @@ export function ClarificationForm({
                       <FormItem>
                         <FormLabel>{COLUMN_LABELS.status}</FormLabel>
                         <FormControl>
-                          {filterOptions.statuses.length > 0 ? (
-                            renderSelectWithCustom(field, filterOptions.statuses, 'Select status')
-                          ) : (
-                            <Input {...field} />
-                          )}
+                          <Select value={field.value || ''} onValueChange={field.onChange}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {STATUS_VALUES.map((status) => (
+                                <SelectItem key={status} value={status}>
+                                  {status}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -243,11 +267,18 @@ export function ClarificationForm({
                       <FormItem>
                         <FormLabel>{COLUMN_LABELS.priority}</FormLabel>
                         <FormControl>
-                          {filterOptions.priorities.length > 0 ? (
-                            renderSelectWithCustom(field, filterOptions.priorities, 'Select priority')
-                          ) : (
-                            <Input {...field} />
-                          )}
+                          <Select value={field.value || ''} onValueChange={field.onChange}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select priority" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {PRIORITY_VALUES.map((priority) => (
+                                <SelectItem key={priority} value={priority}>
+                                  {priority}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -256,20 +287,12 @@ export function ClarificationForm({
 
                   <FormField
                     control={form.control}
-                    name="open"
+                    name="drop_name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{COLUMN_LABELS.open}</FormLabel>
+                        <FormLabel>{COLUMN_LABELS.drop_name}</FormLabel>
                         <FormControl>
-                          <Select value={field.value || ''} onValueChange={field.onChange}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Open">Open</SelectItem>
-                              <SelectItem value="Closed">Closed</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <Input {...field} placeholder="Enter drop name" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -335,20 +358,6 @@ export function ClarificationForm({
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="reason"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{COLUMN_LABELS.reason}</FormLabel>
-                      <FormControl>
-                        <Textarea {...field} className="min-h-20" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -366,10 +375,10 @@ export function ClarificationForm({
 
                   <FormField
                     control={form.control}
-                    name="teater"
+                    name="tester"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{COLUMN_LABELS.teater}</FormLabel>
+                        <FormLabel>{COLUMN_LABELS.tester}</FormLabel>
                         <FormControl>
                           <Input {...field} />
                         </FormControl>
@@ -417,7 +426,7 @@ export function ClarificationForm({
               </Button>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isEdit ? 'Update' : 'Create'}
+                {isEdit ? 'Save' : 'Save'}
               </Button>
             </DialogFooter>
           </form>

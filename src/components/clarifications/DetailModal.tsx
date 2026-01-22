@@ -54,16 +54,15 @@ export function DetailModal({ clarification, open, onOpenChange, onEdit, highlig
     { key: 'scenario_steps', label: COLUMN_LABELS.scenario_steps, isLong: true },
     { key: 'status', label: COLUMN_LABELS.status },
     { key: 'priority', label: COLUMN_LABELS.priority },
+    { key: 'drop_name', label: COLUMN_LABELS.drop_name },
     { key: 'assigned_to', label: COLUMN_LABELS.assigned_to },
     { key: 'date', label: COLUMN_LABELS.date },
     { key: 'keywords', label: COLUMN_LABELS.keywords },
     { key: 'offshore_comments', label: COLUMN_LABELS.offshore_comments, isLong: true },
     { key: 'onsite_comments', label: COLUMN_LABELS.onsite_comments, isLong: true },
-    { key: 'reason', label: COLUMN_LABELS.reason, isLong: true },
     { key: 'addressed_by', label: COLUMN_LABELS.addressed_by },
-    { key: 'teater', label: COLUMN_LABELS.teater },
+    { key: 'tester', label: COLUMN_LABELS.tester },
     { key: 'offshore_reviewer', label: COLUMN_LABELS.offshore_reviewer },
-    { key: 'open', label: COLUMN_LABELS.open },
     { key: 'defect_should_be_raised', label: COLUMN_LABELS.defect_should_be_raised },
   ];
 
@@ -127,9 +126,11 @@ export function DetailModal({ clarification, open, onOpenChange, onEdit, highlig
                     {key === 'status' ? (
                       <span
                         className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${
-                          value.toLowerCase() === 'open'
+                          value === 'Open'
                             ? 'border-warning/20 bg-warning/10 text-warning'
-                            : value.toLowerCase() === 'closed'
+                            : value === 'Open from Offshore'
+                            ? 'border-blue-500/20 bg-blue-500/10 text-blue-600'
+                            : value === 'Closed'
                             ? 'border-success/20 bg-success/10 text-success'
                             : 'bg-muted text-muted-foreground'
                         }`}
@@ -139,9 +140,9 @@ export function DetailModal({ clarification, open, onOpenChange, onEdit, highlig
                     ) : key === 'priority' ? (
                       <span
                         className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${
-                          value.toLowerCase() === 'high'
+                          value === 'P1'
                             ? 'bg-destructive/10 text-destructive'
-                            : value.toLowerCase() === 'medium'
+                            : value === 'P2'
                             ? 'bg-warning/10 text-warning'
                             : 'bg-muted text-muted-foreground'
                         }`}

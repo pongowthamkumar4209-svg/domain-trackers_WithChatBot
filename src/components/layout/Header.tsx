@@ -15,7 +15,7 @@ interface HeaderProps {
 }
 
 const Header = ({ onMenuClick }: HeaderProps) => {
-  const { logout, user } = useAuth();
+  const { signOut, user, profile } = useAuth();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-card shadow-sm">
@@ -56,9 +56,9 @@ const Header = ({ onMenuClick }: HeaderProps) => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>{user?.username || 'Admin User'}</DropdownMenuLabel>
+              <DropdownMenuLabel>{profile?.display_name || user?.email || 'User'}</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={logout} className="text-destructive">
+              <DropdownMenuItem onClick={signOut} className="text-destructive">
                 <LogOut className="h-4 w-4 mr-2" />
                 Sign Out
               </DropdownMenuItem>

@@ -142,7 +142,7 @@ export async function searchClarifications(
       { name: 'scenario_steps', weight: 0.4 },
       { name: 'offshore_comments', weight: 0.15 },
       { name: 'onsite_comments', weight: 0.15 },
-      { name: 'reason', weight: 0.1 },
+      { name: 'drop_name', weight: 0.1 },
       { name: 'module', weight: 0.08 },
       { name: 'status', weight: 0.05 },
       { name: 'priority', weight: 0.04 },
@@ -173,8 +173,8 @@ export async function searchClarifications(
       const truncated = truncateWithContext(row.scenario_steps, query);
       highlights.scenario_steps = highlightMatches(truncated, query);
     }
-    if (row.reason) {
-      highlights.reason = highlightMatches(row.reason, query);
+    if (row.drop_name) {
+      highlights.drop_name = highlightMatches(row.drop_name, query);
     }
     if (row.offshore_comments) {
       const truncated = truncateWithContext(row.offshore_comments, query);

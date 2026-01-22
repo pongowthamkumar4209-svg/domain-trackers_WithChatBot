@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { Clarification, Upload, UploadResult, ClarificationStats } from '@/types/clarification';
+import { Clarification, Upload, UploadResult, ClarificationStats, STATUS_VALUES } from '@/types/clarification';
 import { generateRowHash } from './hashService';
 import { extractKeywordsFromRow } from './keywordService';
 
@@ -31,6 +31,9 @@ export async function saveClarifications(
   let addedCount = 0;
   let duplicatesSkipped = 0;
 
+  // Get current user
+  const { data: { user } } = await supabase.auth.getUser();
+
   // Process rows - check for duplicates by hash
   for (const row of rows) {
     if (!row.row_hash) continue;
@@ -45,27 +48,32 @@ export async function saveClarifications(
     if (existing) {
       duplicatesSkipped++;
     } else {
+      // Normalize status value
+      const normalizedStatus = normalizeStatus(row.status || '');
+      // Normalize priority value
+      const normalizedPriority = normalizePriority(row.priority || '');
+
       const { error: insertError } = await supabase
         .from('clarifications')
         .insert({
           s_no: row.s_no ?? null,
           module: row.module || '',
           scenario_steps: row.scenario_steps || '',
-          status: row.status || '',
+          status: normalizedStatus,
           offshore_comments: row.offshore_comments || '',
           onsite_comments: row.onsite_comments || '',
           date: row.date || '',
-          teater: row.teater || '',
+          tester: row.tester || '',
           offshore_reviewer: row.offshore_reviewer || '',
-          open: row.open || '',
           addressed_by: row.addressed_by || '',
           defect_should_be_raised: row.defect_should_be_raised || '',
-          priority: row.priority || '',
+          priority: normalizedPriority,
           assigned_to: row.assigned_to || '',
-          reason: row.reason || '',
+          drop_name: row.drop_name || '',
           keywords: row.keywords || '',
           row_hash: row.row_hash,
           source_upload_id: uploadId,
+          created_by: user?.id || null,
         });
 
       if (insertError) {
@@ -104,6 +112,26 @@ export async function saveClarifications(
   };
 }
 
+// Normalize status to valid values
+function normalizeStatus(status: string): string {
+  const lower = status.toLowerCase().trim();
+  if (lower.includes('offshore')) return 'Open from Offshore';
+  if (lower === 'open') return 'Open';
+  if (lower === 'closed') return 'Closed';
+  // Default based on content
+  if (lower) return 'Open';
+  return '';
+}
+
+// Normalize priority to P1 or P2
+function normalizePriority(priority: string): string {
+  const lower = priority.toLowerCase().trim();
+  if (['high', 'p1', '1', 'critical', 'urgent'].includes(lower)) return 'P1';
+  if (['medium', 'p2', '2', 'normal', 'low', 'p3', 'p4'].includes(lower)) return 'P2';
+  if (priority === '') return '';
+  return 'P2';
+}
+
 // Create or update a single clarification (for manual add/edit)
 export async function saveSingleClarification(
   data: Partial<Clarification>
@@ -114,6 +142,15 @@ export async function saveSingleClarification(
   // Generate row hash for deduplication
   const row_hash = await generateRowHash(data);
   
+  // Get current user
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  // Normalize status and priority
+  const normalizedStatus = data.status && STATUS_VALUES.includes(data.status as any) 
+    ? data.status 
+    : normalizeStatus(data.status || '');
+  const normalizedPriority = normalizePriority(data.priority || '');
+  
   // If editing existing row, update it
   if (data.id) {
     const { error } = await supabase
@@ -122,20 +159,21 @@ export async function saveSingleClarification(
         s_no: data.s_no ?? null,
         module: data.module || '',
         scenario_steps: data.scenario_steps || '',
-        status: data.status || '',
+        status: normalizedStatus,
         offshore_comments: data.offshore_comments || '',
         onsite_comments: data.onsite_comments || '',
         date: data.date || '',
-        teater: data.teater || '',
+        tester: data.tester || '',
         offshore_reviewer: data.offshore_reviewer || '',
-        open: data.open || '',
         addressed_by: data.addressed_by || '',
         defect_should_be_raised: data.defect_should_be_raised || '',
-        priority: data.priority || '',
+        priority: normalizedPriority,
         assigned_to: data.assigned_to || '',
-        reason: data.reason || '',
+        drop_name: data.drop_name || '',
         keywords,
         row_hash,
+        updated_by: user?.id || null,
+        updated_at: new Date().toISOString(),
       })
       .eq('id', data.id);
     
@@ -169,20 +207,20 @@ export async function saveSingleClarification(
       s_no: data.s_no ?? null,
       module: data.module || '',
       scenario_steps: data.scenario_steps || '',
-      status: data.status || '',
+      status: normalizedStatus,
       offshore_comments: data.offshore_comments || '',
       onsite_comments: data.onsite_comments || '',
       date: data.date || '',
-      teater: data.teater || '',
+      tester: data.tester || '',
       offshore_reviewer: data.offshore_reviewer || '',
-      open: data.open || '',
       addressed_by: data.addressed_by || '',
       defect_should_be_raised: data.defect_should_be_raised || '',
-      priority: data.priority || '',
+      priority: normalizedPriority,
       assigned_to: data.assigned_to || '',
-      reason: data.reason || '',
+      drop_name: data.drop_name || '',
       keywords,
       row_hash,
+      created_by: user?.id || null,
     });
   
   if (error) {
@@ -238,7 +276,12 @@ export async function getClarifications(filters?: FilterOptions): Promise<Clarif
     return [];
   }
 
-  let clarifications = (data || []) as Clarification[];
+  // Map database rows to Clarification type (handles column renames)
+  let clarifications = (data || []).map((row: any) => ({
+    ...row,
+    tester: row.tester || row.teater || '',
+    drop_name: row.drop_name || '',
+  })) as Clarification[];
 
   // Apply text search filter client-side if provided
   if (filters?.search) {
@@ -246,7 +289,8 @@ export async function getClarifications(filters?: FilterOptions): Promise<Clarif
     clarifications = clarifications.filter(c => {
       const searchableText = [
         c.module, c.scenario_steps, c.status, c.offshore_comments,
-        c.onsite_comments, c.reason, c.assigned_to, c.priority
+        c.onsite_comments, c.assigned_to, c.priority, c.drop_name,
+        c.tester, c.keywords
       ].join(' ').toLowerCase();
       return searchableText.includes(searchLower);
     });
@@ -291,9 +335,9 @@ export async function getUploads(): Promise<Upload[]> {
   return (data || []) as Upload[];
 }
 
-// Get statistics including Open vs Closed from 'open' column
+// Get statistics based on status field
 export async function getStats(): Promise<ClarificationStats> {
-  const { data: clarifications } = await supabase.from('clarifications').select('status, priority, module, open');
+  const { data: clarifications } = await supabase.from('clarifications').select('status, priority, module');
   const uploads = await getUploads();
 
   const byStatus: Record<string, number> = {};
@@ -308,11 +352,10 @@ export async function getStats(): Promise<ClarificationStats> {
     if (c.priority) byPriority[c.priority] = (byPriority[c.priority] || 0) + 1;
     if (c.module) byModule[c.module] = (byModule[c.module] || 0) + 1;
     
-    // Count based on 'open' column
-    const openValue = (c.open || '').toLowerCase().trim();
-    if (openValue === 'closed') {
+    // Count based on status column
+    if (c.status === 'Closed') {
       resolvedCount++;
-    } else if (openValue) {
+    } else if (c.status === 'Open' || c.status === 'Open from Offshore') {
       openCount++;
     }
   }

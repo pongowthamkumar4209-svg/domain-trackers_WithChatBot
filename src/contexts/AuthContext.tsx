@@ -1,82 +1,159 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { User, Session } from '@supabase/supabase-js';
 
-interface User {
-  username: string;
+interface Profile {
+  id: string;
+  user_id: string;
+  display_name: string | null;
+  email: string | null;
 }
 
 interface AuthContextType {
   user: User | null;
+  profile: Profile | null;
+  session: Session | null;
   isAuthenticated: boolean;
-  login: (username: string, password: string) => Promise<boolean>;
-  logout: () => void;
+  isLoading: boolean;
+  isAdmin: boolean;
+  signUp: (email: string, password: string, displayName?: string) => Promise<{ success: boolean; error?: string }>;
+  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// Default credentials (change in production)
-const DEFAULT_USERNAME = 'admin';
-const DEFAULT_PASSWORD = 'admin@123';
-
-const AUTH_TOKEN_KEY = 'cn-clarification-auth';
-
-interface StoredAuth {
-  username: string;
-  token: string;
-  expiry: number;
-}
-
-function generateToken(): string {
-  return btoa(crypto.randomUUID() + Date.now());
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
-  // Check for existing session on mount
-  useEffect(() => {
-    const stored = localStorage.getItem(AUTH_TOKEN_KEY);
-    if (stored) {
-      try {
-        const auth: StoredAuth = JSON.parse(stored);
-        if (auth.expiry > Date.now()) {
-          setUser({ username: auth.username });
-        } else {
-          localStorage.removeItem(AUTH_TOKEN_KEY);
-        }
-      } catch {
-        localStorage.removeItem(AUTH_TOKEN_KEY);
-      }
-    }
-  }, []);
-
-  const login = async (username: string, password: string): Promise<boolean> => {
-    // Simple credential check (in production, use proper auth)
-    if (username === DEFAULT_USERNAME && password === DEFAULT_PASSWORD) {
-      const auth: StoredAuth = {
-        username,
-        token: generateToken(),
-        expiry: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
-      };
+  // Fetch profile data
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data, error } = await (supabase
+        .from('profiles' as any)
+        .select('id, user_id, display_name, email')
+        .eq('user_id', userId)
+        .maybeSingle() as any);
       
-      localStorage.setItem(AUTH_TOKEN_KEY, JSON.stringify(auth));
-      setUser({ username });
-      return true;
+      if (!error && data) {
+        setProfile(data as Profile);
+      }
+    } catch (e) {
+      console.error('Error fetching profile:', e);
     }
-    
-    return false;
   };
 
-  const logout = () => {
-    localStorage.removeItem(AUTH_TOKEN_KEY);
+  // Check if user is admin
+  const checkAdminRole = async (userId: string) => {
+    try {
+      const { data, error } = await (supabase
+        .from('user_roles' as any)
+        .select('role')
+        .eq('user_id', userId)
+        .eq('role', 'admin')
+        .maybeSingle() as any);
+      
+      if (!error) {
+        setIsAdmin(!!data);
+      }
+    } catch (e) {
+      console.error('Error checking admin role:', e);
+    }
+  };
+
+  useEffect(() => {
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          // Use setTimeout to avoid Supabase deadlock
+          setTimeout(() => {
+            fetchProfile(session.user.id);
+            checkAdminRole(session.user.id);
+          }, 0);
+        } else {
+          setProfile(null);
+          setIsAdmin(false);
+        }
+        
+        setIsLoading(false);
+      }
+    );
+
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        fetchProfile(session.user.id);
+        checkAdminRole(session.user.id);
+      }
+      
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const signUp = async (email: string, password: string, displayName?: string): Promise<{ success: boolean; error?: string }> => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: window.location.origin,
+        data: {
+          display_name: displayName || email.split('@')[0],
+        },
+      },
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  };
+
+  const signIn = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
     setUser(null);
+    setProfile(null);
+    setSession(null);
+    setIsAdmin(false);
   };
 
   return (
     <AuthContext.Provider value={{
       user,
+      profile,
+      session,
       isAuthenticated: !!user,
-      login,
-      logout,
+      isLoading,
+      isAdmin,
+      signUp,
+      signIn,
+      signOut,
     }}>
       {children}
     </AuthContext.Provider>
