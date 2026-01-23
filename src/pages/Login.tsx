@@ -5,16 +5,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertCircle, FileSpreadsheet, Lock } from 'lucide-react';
+import { AlertCircle, FileSpreadsheet, Lock, UserPlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Login() {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
   
-  const { login } = useAuth();
+  const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -27,16 +29,28 @@ export default function Login() {
     setIsLoading(true);
     
     try {
-      const success = await login(username, password);
-      
-      if (success) {
-        toast({
-          title: 'Welcome back!',
-          description: 'You have been logged in successfully.',
-        });
-        navigate(from, { replace: true });
+      if (isSignUp) {
+        const result = await signUp(email, password, displayName);
+        if (result.success) {
+          toast({
+            title: 'Account created!',
+            description: 'You can now sign in with your credentials.',
+          });
+          setIsSignUp(false);
+        } else {
+          setError(result.error || 'Failed to create account');
+        }
       } else {
-        setError('Invalid username or password');
+        const result = await signIn(email, password);
+        if (result.success) {
+          toast({
+            title: 'Welcome back!',
+            description: 'You have been logged in successfully.',
+          });
+          navigate(from, { replace: true });
+        } else {
+          setError(result.error || 'Invalid email or password');
+        }
       }
     } catch {
       setError('An error occurred. Please try again.');
@@ -65,11 +79,11 @@ export default function Login() {
         <Card className="border-border/50 shadow-lg">
           <CardHeader className="space-y-1">
             <CardTitle className="text-xl font-semibold flex items-center gap-2">
-              <Lock className="w-5 h-5" />
-              Sign In
+              {isSignUp ? <UserPlus className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
+              {isSignUp ? 'Create Account' : 'Sign In'}
             </CardTitle>
             <CardDescription>
-              Enter your credentials to access the portal
+              {isSignUp ? 'Create a new account to access the portal' : 'Enter your credentials to access the portal'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -81,16 +95,30 @@ export default function Login() {
                 </div>
               )}
               
+              {isSignUp && (
+                <div className="space-y-2">
+                  <Label htmlFor="displayName">Display Name</Label>
+                  <Input
+                    id="displayName"
+                    type="text"
+                    placeholder="Enter display name"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    autoComplete="name"
+                  />
+                </div>
+              )}
+              
               <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
+                <Label htmlFor="email">Email</Label>
                 <Input
-                  id="username"
-                  type="text"
-                  placeholder="Enter username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  id="email"
+                  type="email"
+                  placeholder="Enter email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
-                  autoComplete="username"
+                  autoComplete="email"
                   autoFocus
                 />
               </div>
@@ -104,7 +132,7 @@ export default function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  autoComplete="current-password"
+                  autoComplete={isSignUp ? 'new-password' : 'current-password'}
                 />
               </div>
               
@@ -113,16 +141,21 @@ export default function Login() {
                 className="w-full" 
                 disabled={isLoading}
               >
-                {isLoading ? 'Signing in...' : 'Sign In'}
+                {isLoading ? (isSignUp ? 'Creating account...' : 'Signing in...') : (isSignUp ? 'Create Account' : 'Sign In')}
               </Button>
             </form>
             
             <div className="mt-6 pt-4 border-t border-border/50">
-              <p className="text-xs text-muted-foreground text-center">
-                Default credentials: <code className="bg-muted px-1 rounded">admin</code> / <code className="bg-muted px-1 rounded">admin@123</code>
-                <br />
-                <span className="text-warning">Change these in production!</span>
-              </p>
+              <Button 
+                variant="ghost" 
+                className="w-full"
+                onClick={() => {
+                  setIsSignUp(!isSignUp);
+                  setError('');
+                }}
+              >
+                {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
+              </Button>
             </div>
           </CardContent>
         </Card>
