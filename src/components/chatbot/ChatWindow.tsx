@@ -1,30 +1,14 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { X, Search, ArrowRight, Bot, User, Loader2, Volume2, VolumeX } from "lucide-react";
+import { X, Send, Bot, User, Loader2, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { supabase } from "@/integrations/supabase/client";
-import { useDebounce } from "@/hooks/useDebounce";
 
 interface Message {
   id: string;
   role: "bot" | "user";
   content: string;
   timestamp: Date;
-  clarification?: ClarificationResult | null;
-}
-
-interface ClarificationResult {
-  id: string;
-  s_no: number | null;
-  module: string;
-  scenario_steps: string;
-  status: string;
-  offshore_comments: string;
-  onsite_comments: string;
-  assigned_to: string;
-  date: string;
-  priority: string;
 }
 
 interface ChatWindowProps {
@@ -32,27 +16,23 @@ interface ChatWindowProps {
   onClose: () => void;
 }
 
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cn-bot-chat`;
+
 const ChatWindow = ({ isOpen, onClose }: ChatWindowProps) => {
-  const [isSoundEnabled, setIsSoundEnabled] = useState(true);
+  const [isSoundEnabled, setIsSoundEnabled] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
       role: "bot",
-      content: "👋 Hello! Welcome to the Railroad Clarification Portal. I'm CN Bot, your assistant for finding clarifications quickly. Just type a keyword (like module name, scenario, or issue) and I'll search through our records for you. How can I help you today?",
+      content: "👋 Hello! I'm **CN Bot**, your assistant for the Clarification Portal.\n\nI can help you:\n- 🔍 **Search CNs** - Just describe what you're looking for\n- 📝 **Explain issues** - Share CN details and I'll summarize\n- ✍️ **Draft responses** - I'll help write professional comments\n- 📋 **Closure notes** - Get help with closure summaries\n\nHow can I assist you today?",
       timestamp: new Date(),
     },
   ]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [currentPage, setCurrentPage] = useState(0);
-  const [totalMatches, setTotalMatches] = useState(0);
-  const [lastQuery, setLastQuery] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
   const hasGreetedRef = useRef(false);
-
-  const debouncedInput = useDebounce(inputValue, 300);
 
   // Stop speech when sound is disabled
   const stopSpeech = useCallback(() => {
@@ -76,18 +56,14 @@ const ChatWindow = ({ isOpen, onClose }: ChatWindowProps) => {
     if (!isSoundEnabled) return;
     
     if ('speechSynthesis' in window) {
-      // Cancel any ongoing speech
       window.speechSynthesis.cancel();
-      
-      // Remove emoji from text for cleaner speech
-      const cleanText = text.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
+      const cleanText = text.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').replace(/[*#_`]/g, '').trim();
       
       const utterance = new SpeechSynthesisUtterance(cleanText);
       utterance.rate = 0.95;
       utterance.pitch = 1;
       utterance.volume = 1;
       
-      // Try to use a friendly voice
       const voices = window.speechSynthesis.getVoices();
       const preferredVoice = voices.find(v => 
         v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Alex')
@@ -108,128 +84,159 @@ const ChatWindow = ({ isOpen, onClose }: ChatWindowProps) => {
     }
   }, [messages]);
 
-  // Focus input and speak greeting when opened
+  // Focus input when opened
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 100);
       
-      // Speak greeting only once per session
-      if (!hasGreetedRef.current && messages.length > 0 && messages[0].id === "welcome") {
+      if (!hasGreetedRef.current && messages.length > 0 && messages[0].id === "welcome" && isSoundEnabled) {
         hasGreetedRef.current = true;
-        // Small delay to ensure voices are loaded
         setTimeout(() => {
           speakText(messages[0].content);
         }, 300);
       }
     }
-  }, [isOpen, messages, speakText]);
+  }, [isOpen, messages, speakText, isSoundEnabled]);
 
-  // Reset when query changes
-  useEffect(() => {
-    if (debouncedInput !== lastQuery && debouncedInput) {
-      setCurrentPage(0);
-      setTotalMatches(0);
-    }
-  }, [debouncedInput, lastQuery]);
-
-  const addMessage = useCallback((role: "bot" | "user", content: string, clarification?: ClarificationResult | null) => {
+  const addMessage = useCallback((role: "bot" | "user", content: string): string => {
+    const id = crypto.randomUUID();
     const newMessage: Message = {
-      id: crypto.randomUUID(),
+      id,
       role,
       content,
       timestamp: new Date(),
-      clarification,
     };
     setMessages((prev) => [...prev, newMessage]);
+    return id;
   }, []);
 
-  const formatClarification = (item: ClarificationResult): string => {
-    return `**#${item.s_no || "N/A"} - ${item.module}**`;
-  };
+  const updateMessage = useCallback((id: string, content: string) => {
+    setMessages(prev => prev.map(msg => 
+      msg.id === id ? { ...msg, content } : msg
+    ));
+  }, []);
 
-  const performSearch = useCallback(async (query: string, page: number) => {
-    // Cancel previous request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    abortControllerRef.current = new AbortController();
-
+  const streamChat = useCallback(async (userMessage: string) => {
     setIsLoading(true);
+    
+    // Build conversation history for context
+    const conversationHistory = messages
+      .filter(m => m.id !== "welcome")
+      .map(m => ({
+        role: m.role === "bot" ? "assistant" : "user",
+        content: m.content
+      }));
+    
+    // Add current message
+    conversationHistory.push({ role: "user", content: userMessage });
 
     try {
-      const { data, error } = await supabase.functions.invoke("chatbot-search", {
-        body: null,
-        headers: {},
+      const response = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ messages: conversationHistory }),
       });
 
-      // Use fetch directly for query params support
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chatbot-search?q=${encodeURIComponent(query)}&page=${page}&size=1`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          signal: abortControllerRef.current.signal,
-        }
-      );
-
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Search failed");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Request failed with status ${response.status}`);
       }
 
-      const result = await response.json();
-      
-      setTotalMatches(result.total_matches);
-      setLastQuery(query);
-      setCurrentPage(page);
-
-      if (result.items && result.items.length > 0) {
-        const item = result.items[0] as ClarificationResult;
-        const matchInfo = page === 0 
-          ? `Found ${result.total_matches} match${result.total_matches > 1 ? "es" : ""}. Showing result ${page + 1}:`
-          : `Result ${page + 1} of ${result.total_matches}:`;
-        
-        addMessage("bot", matchInfo, item);
-      } else if (page === 0) {
-        addMessage("bot", "No matching clarification found.");
-      } else {
-        addMessage("bot", "No more results.");
+      if (!response.body) {
+        throw new Error("No response body");
       }
+
+      // Create bot message placeholder
+      const botMessageId = addMessage("bot", "");
+      let fullContent = "";
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Process line by line
+        let newlineIndex: number;
+        while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+          let line = buffer.slice(0, newlineIndex);
+          buffer = buffer.slice(newlineIndex + 1);
+
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") break;
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            if (content) {
+              fullContent += content;
+              updateMessage(botMessageId, fullContent);
+            }
+          } catch {
+            // Incomplete JSON, put it back
+            buffer = line + "\n" + buffer;
+            break;
+          }
+        }
+      }
+
+      // Final flush
+      if (buffer.trim()) {
+        for (let raw of buffer.split("\n")) {
+          if (!raw) continue;
+          if (raw.endsWith("\r")) raw = raw.slice(0, -1);
+          if (raw.startsWith(":") || raw.trim() === "") continue;
+          if (!raw.startsWith("data: ")) continue;
+          const jsonStr = raw.slice(6).trim();
+          if (jsonStr === "[DONE]") continue;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            if (content) {
+              fullContent += content;
+              updateMessage(botMessageId, fullContent);
+            }
+          } catch { /* ignore */ }
+        }
+      }
+
+      // Speak the response if sound is enabled
+      if (isSoundEnabled && fullContent) {
+        speakText(fullContent);
+      }
+
     } catch (error: any) {
-      if (error.name === "AbortError") {
-        console.log("Search cancelled");
-        return;
-      }
-      console.error("Search error:", error);
-      addMessage("bot", error.message || "Sorry, something went wrong. Please try again.");
+      console.error("Chat error:", error);
+      addMessage("bot", `Sorry, I encountered an error: ${error.message || "Please try again."}`);
     } finally {
       setIsLoading(false);
     }
-  }, [addMessage]);
+  }, [messages, addMessage, updateMessage, isSoundEnabled, speakText]);
 
-  const handleSearch = useCallback(() => {
+  const handleSend = useCallback(() => {
     const query = inputValue.trim();
-    if (!query) return;
+    if (!query || isLoading) return;
 
     addMessage("user", query);
-    performSearch(query, 0);
-  }, [inputValue, addMessage, performSearch]);
-
-  const handleNext = useCallback(() => {
-    if (currentPage + 1 >= totalMatches) {
-      addMessage("bot", "No more results.");
-      return;
-    }
-    performSearch(lastQuery, currentPage + 1);
-  }, [currentPage, totalMatches, lastQuery, performSearch, addMessage]);
+    setInputValue("");
+    streamChat(query);
+  }, [inputValue, isLoading, addMessage, streamChat]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSearch();
+      handleSend();
     }
     if (e.key === "Escape") {
       onClose();
@@ -240,58 +247,68 @@ const ChatWindow = ({ isOpen, onClose }: ChatWindowProps) => {
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
+  // Simple markdown renderer for bold and bullet points
+  const renderContent = (content: string) => {
+    const lines = content.split('\n');
+    return lines.map((line, i) => {
+      // Handle bullet points
+      if (line.trim().startsWith('- ')) {
+        const bulletContent = line.trim().substring(2);
+        return (
+          <div key={i} className="flex gap-2 ml-2">
+            <span>•</span>
+            <span dangerouslySetInnerHTML={{ __html: formatBold(bulletContent) }} />
+          </div>
+        );
+      }
+      // Regular line with bold support
+      return (
+        <div key={i} dangerouslySetInnerHTML={{ __html: formatBold(line) || '&nbsp;' }} />
+      );
+    });
+  };
+
+  const formatBold = (text: string) => {
+    return text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  };
+
   if (!isOpen) return null;
 
   return (
     <div
-      className="fixed bottom-24 right-4 z-[9999] w-[360px] max-w-[calc(100vw-2rem)] h-[70vh] max-h-[600px] bg-card border border-border rounded-xl shadow-2xl flex flex-col"
+      className="fixed bottom-24 right-4 z-[9999] w-[400px] max-w-[calc(100vw-2rem)] h-[75vh] max-h-[650px] bg-card border border-border rounded-xl shadow-2xl flex flex-col"
       role="dialog"
       aria-label="CN Bot Chat"
       aria-modal="true"
     >
-      {/* Header - Sticky at top, never scrolls */}
+      {/* Header */}
       <div className="sticky top-0 z-10 bg-gradient-to-r from-violet-600 to-purple-600 px-3 py-3 flex items-center gap-2 flex-shrink-0 rounded-t-xl">
         <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
           <Bot className="w-5 h-5 text-white" />
         </div>
         <div className="flex-1 min-w-0">
           <h2 className="text-white font-semibold text-sm truncate">CN Bot</h2>
-          <p className="text-white/70 text-xs truncate">Clarification Assistant</p>
+          <p className="text-white/70 text-xs truncate">AI-Powered Clarification Assistant</p>
         </div>
         <button
           type="button"
           onClick={toggleSound}
           className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-md text-white bg-white/20 hover:bg-white/30 transition-colors focus:outline-none focus:ring-2 focus:ring-white/50"
           aria-label={isSoundEnabled ? "Mute voice" : "Enable voice"}
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              toggleSound();
-            }
-          }}
         >
           {isSoundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
         </button>
         <button
           type="button"
           onClick={onClose}
-          role="button"
           className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-md text-white bg-white/20 hover:bg-white/30 transition-colors focus:outline-none focus:ring-2 focus:ring-white/50"
           aria-label="Close chat"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              onClose();
-            }
-          }}
         >
           <X className="w-5 h-5" />
         </button>
       </div>
 
-      {/* Messages Area - Scrollable content */}
+      {/* Messages Area */}
       <ScrollArea className="flex-1 min-h-0 overflow-y-auto" ref={scrollRef}>
         <div className="p-4 space-y-4">
           {messages.map((msg) => (
@@ -312,7 +329,7 @@ const ChatWindow = ({ isOpen, onClose }: ChatWindowProps) => {
                   <User className="w-4 h-4 text-primary" />
                 )}
               </div>
-              <div className={`flex flex-col ${msg.role === "user" ? "items-end" : ""} max-w-[80%]`}>
+              <div className={`flex flex-col ${msg.role === "user" ? "items-end" : ""} max-w-[85%]`}>
                 <div
                   className={`rounded-lg px-3 py-2 text-sm ${
                     msg.role === "bot"
@@ -320,49 +337,8 @@ const ChatWindow = ({ isOpen, onClose }: ChatWindowProps) => {
                       : "bg-primary text-primary-foreground"
                   }`}
                 >
-                  {msg.content}
+                  {msg.role === "bot" ? renderContent(msg.content) : msg.content}
                 </div>
-                
-                {/* Clarification Card */}
-                {msg.clarification && (
-                  <div className="mt-2 w-full bg-card border border-border rounded-lg p-3 text-xs space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-foreground">
-                        #{msg.clarification.s_no || "N/A"}
-                      </span>
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                        msg.clarification.status?.toLowerCase().includes("open")
-                          ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                          : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                      }`}>
-                        {msg.clarification.status || "N/A"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Module:</span>{" "}
-                      <span className="text-foreground">{msg.clarification.module || "N/A"}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Steps:</span>
-                      <p className="text-foreground mt-0.5 line-clamp-3">
-                        {msg.clarification.scenario_steps || "N/A"}
-                      </p>
-                    </div>
-                    {msg.clarification.offshore_comments && (
-                      <div>
-                        <span className="text-muted-foreground">Offshore:</span>
-                        <p className="text-foreground mt-0.5 line-clamp-2">
-                          {msg.clarification.offshore_comments}
-                        </p>
-                      </div>
-                    )}
-                    <div className="flex justify-between text-muted-foreground pt-1 border-t border-border">
-                      <span>Assigned: {msg.clarification.assigned_to || "N/A"}</span>
-                      <span>{msg.clarification.date || "N/A"}</span>
-                    </div>
-                  </div>
-                )}
-                
                 <span className="text-[10px] text-muted-foreground mt-1">
                   {formatTime(msg.timestamp)}
                 </span>
@@ -370,20 +346,20 @@ const ChatWindow = ({ isOpen, onClose }: ChatWindowProps) => {
             </div>
           ))}
           
-          {isLoading && (
+          {isLoading && messages[messages.length - 1]?.role === "user" && (
             <div className="flex gap-2">
               <div className="w-7 h-7 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
                 <Loader2 className="w-4 h-4 text-violet-600 dark:text-violet-400 animate-spin" />
               </div>
               <div className="bg-muted rounded-lg px-3 py-2 text-sm">
-                <span className="text-muted-foreground">Searching...</span>
+                <span className="text-muted-foreground">Thinking...</span>
               </div>
             </div>
           )}
         </div>
       </ScrollArea>
 
-      {/* Input Area - Sticky at bottom */}
+      {/* Input Area */}
       <div className="flex-shrink-0 p-3 border-t border-border bg-background/50">
         <div className="flex gap-2">
           <Input
@@ -391,36 +367,24 @@ const ChatWindow = ({ isOpen, onClose }: ChatWindowProps) => {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Type keywords..."
-            className="flex-1 h-9 text-sm"
-            aria-label="Search keywords"
+            placeholder="Ask me anything about CNs..."
+            className="flex-1 h-10 text-sm"
+            aria-label="Message input"
             disabled={isLoading}
           />
           <Button
             size="sm"
-            onClick={handleSearch}
+            onClick={handleSend}
             disabled={isLoading || !inputValue.trim()}
-            className="h-9 px-3"
-            aria-label="Search"
+            className="h-10 px-4"
+            aria-label="Send message"
           >
-            <Search className="w-4 h-4" />
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleNext}
-            disabled={isLoading || totalMatches === 0 || currentPage + 1 >= totalMatches}
-            className="h-9 px-3"
-            aria-label="Next result"
-          >
-            <ArrowRight className="w-4 h-4" />
+            <Send className="w-4 h-4" />
           </Button>
         </div>
-        {totalMatches > 0 && (
-          <p className="text-[10px] text-muted-foreground mt-1.5 text-center">
-            Result {currentPage + 1} of {totalMatches} • Press Enter to search
-          </p>
-        )}
+        <p className="text-[10px] text-muted-foreground mt-1.5 text-center">
+          Press Enter to send • I can search CNs, explain issues, and draft responses
+        </p>
       </div>
     </div>
   );
