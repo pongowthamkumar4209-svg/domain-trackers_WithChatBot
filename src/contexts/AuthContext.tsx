@@ -9,6 +9,8 @@ interface Profile {
   email: string | null;
 }
 
+type AppRole = 'admin' | 'editor' | 'viewer';
+
 interface AuthContextType {
   user: User | null;
   profile: Profile | null;
@@ -16,6 +18,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   isAdmin: boolean;
+  userRole: AppRole | null;
   signUp: (email: string, password: string, displayName?: string) => Promise<{ success: boolean; error?: string }>;
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
@@ -29,6 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [userRole, setUserRole] = useState<AppRole | null>(null);
 
   // Fetch profile data
   const fetchProfile = async (userId: string) => {
@@ -47,21 +51,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Check if user is admin
-  const checkAdminRole = async (userId: string) => {
+  // Check user role
+  const checkUserRole = async (userId: string) => {
     try {
       const { data, error } = await (supabase
         .from('user_roles' as any)
         .select('role')
         .eq('user_id', userId)
-        .eq('role', 'admin')
         .maybeSingle() as any);
       
-      if (!error) {
-        setIsAdmin(!!data);
+      if (!error && data) {
+        const role = data.role as AppRole;
+        setUserRole(role);
+        setIsAdmin(role === 'admin');
+      } else {
+        // Default to viewer if no role found
+        setUserRole('viewer');
+        setIsAdmin(false);
       }
     } catch (e) {
-      console.error('Error checking admin role:', e);
+      console.error('Error checking user role:', e);
+      setUserRole('viewer');
+      setIsAdmin(false);
     }
   };
 
@@ -76,11 +87,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Use setTimeout to avoid Supabase deadlock
           setTimeout(() => {
             fetchProfile(session.user.id);
-            checkAdminRole(session.user.id);
+            checkUserRole(session.user.id);
           }, 0);
         } else {
           setProfile(null);
           setIsAdmin(false);
+          setUserRole(null);
         }
         
         setIsLoading(false);
@@ -94,7 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (session?.user) {
         fetchProfile(session.user.id);
-        checkAdminRole(session.user.id);
+        checkUserRole(session.user.id);
       }
       
       setIsLoading(false);
@@ -141,6 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
     setSession(null);
     setIsAdmin(false);
+    setUserRole(null);
   };
 
   return (
@@ -151,6 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: !!user,
       isLoading,
       isAdmin,
+      userRole,
       signUp,
       signIn,
       signOut,
