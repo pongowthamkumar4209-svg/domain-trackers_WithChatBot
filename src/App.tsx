@@ -11,6 +11,7 @@ import Upload from "./pages/Upload";
 import Search from "./pages/Search";
 import History from "./pages/History";
 import Settings from "./pages/Settings";
+import SiteManagement from "./pages/SiteManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/search" element={<ProtectedRoute><Search /></ProtectedRoute>} />
             <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route path="/site-management" element={<ProtectedRoute><SiteManagement /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

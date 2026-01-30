@@ -5,21 +5,35 @@ import {
   Settings,
   X,
   Train,
+  Shield,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useRolePermissions } from '@/hooks/useRolePermissions';
 
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const navigation = [
+interface NavItem {
+  name: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+  adminOnly?: boolean;
+}
+
+const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'Site Management', href: '/site-management', icon: Shield, adminOnly: true },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
 const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const location = useLocation();
+  const { isAdmin } = useRolePermissions();
+
+  // Filter navigation based on role
+  const visibleNavigation = navigation.filter(item => !item.adminOnly || isAdmin);
 
   return (
     <>
@@ -58,7 +72,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
         {/* Navigation */}
         <nav className="flex flex-col gap-2 p-4">
-          {navigation.map((item) => {
+          {visibleNavigation.map((item) => {
             const isActive = location.pathname === item.href;
             return (
               <Link

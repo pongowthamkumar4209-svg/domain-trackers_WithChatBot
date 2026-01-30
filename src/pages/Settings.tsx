@@ -10,6 +10,7 @@ import { Separator } from '@/components/ui/separator';
 import { clearAllData, getUploads } from '@/services/storageService';
 import { exportToCSV } from '@/services/exportService';
 import { useToast } from '@/hooks/use-toast';
+import { useRolePermissions } from '@/hooks/useRolePermissions';
 import { 
   Upload, 
   Download, 
@@ -36,6 +37,7 @@ import {
 export default function Settings() {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { isAdmin, canUpload } = useRolePermissions();
   const [notifications, setNotifications] = useState(true);
   const [autoSave, setAutoSave] = useState(true);
 
@@ -99,23 +101,25 @@ export default function Settings() {
 
           {/* Data Management Tab */}
           <TabsContent value="data" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileSpreadsheet className="h-5 w-5" />
-                  Upload Excel File
-                </CardTitle>
-                <CardDescription>
-                  Upload an Excel file with a "clarification" sheet. New unique rows will be added to existing data.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button onClick={() => navigate('/upload')} className="gap-2">
-                  <Upload className="h-4 w-4" />
-                  Go to Upload Page
-                </Button>
-              </CardContent>
-            </Card>
+            {canUpload && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileSpreadsheet className="h-5 w-5" />
+                    Upload Excel File
+                  </CardTitle>
+                  <CardDescription>
+                    Upload an Excel file with a "clarification" sheet. New unique rows will be added to existing data.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button onClick={() => navigate('/upload')} className="gap-2">
+                    <Upload className="h-4 w-4" />
+                    Go to Upload Page
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
 
             <Card>
               <CardHeader>
@@ -153,42 +157,44 @@ export default function Settings() {
               </CardContent>
             </Card>
 
-            <Card className="border-destructive/50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-destructive">
-                  <Trash2 className="h-5 w-5" />
-                  Clear All Data
-                </CardTitle>
-                <CardDescription>
-                  Permanently delete all clarification data and upload history. This action cannot be undone.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" className="gap-2">
-                      <Trash2 className="h-4 w-4" />
-                      Clear All Data
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will permanently delete all clarification data and upload history.
-                        This action cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleClearData} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                        Delete All Data
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </CardContent>
-            </Card>
+            {isAdmin && (
+              <Card className="border-destructive/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-destructive">
+                    <Trash2 className="h-5 w-5" />
+                    Clear All Data
+                  </CardTitle>
+                  <CardDescription>
+                    Permanently delete all clarification data and upload history. This action cannot be undone.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" className="gap-2">
+                        <Trash2 className="h-4 w-4" />
+                        Clear All Data
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete all clarification data and upload history.
+                          This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleClearData} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                          Delete All Data
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Upload Tab */}

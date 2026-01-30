@@ -12,6 +12,7 @@ import { getStats, getClarifications, saveClarifications, getFilterOptions, save
 import { parseExcelFile } from '@/services/excelParser';
 import { ClarificationStats, Clarification, SearchResult, UploadResult } from '@/types/clarification';
 import { useToast } from '@/hooks/use-toast';
+import { useRolePermissions } from '@/hooks/useRolePermissions';
 import { 
   Upload, 
   Search, 
@@ -26,6 +27,7 @@ import {
 } from 'lucide-react';
 
 export default function Dashboard() {
+  const { canCreate, canEdit, canUpload } = useRolePermissions();
   const [stats, setStats] = useState<ClarificationStats | null>(null);
   const [clarifications, setClarifications] = useState<Clarification[]>([]);
   const [selectedRow, setSelectedRow] = useState<Clarification | null>(null);
@@ -145,13 +147,15 @@ export default function Dashboard() {
                 Manage and search your clarification data efficiently
               </p>
             </div>
-            <Button 
-              onClick={() => { setEditingRow(null); setShowForm(true); }}
-              className="bg-emerald-500 hover:bg-emerald-600"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Row
-            </Button>
+            {canCreate && (
+              <Button 
+                onClick={() => { setEditingRow(null); setShowForm(true); }}
+                className="bg-emerald-500 hover:bg-emerald-600"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Row
+              </Button>
+            )}
           </div>
           <div className="absolute -bottom-10 -right-10 h-40 w-40 rounded-full bg-emerald-500/20 blur-3xl" />
           <div className="absolute -top-10 -left-10 h-32 w-32 rounded-full bg-cyan-500/20 blur-3xl" />
@@ -240,28 +244,30 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Upload Section */}
-        <Card className="shadow-md border-l-4 border-l-emerald-500">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Upload className="h-5 w-5 text-emerald-500" />
-              Upload Excel File
-            </CardTitle>
-            <CardDescription>
-              Upload an Excel file with a "clarification" sheet. Keywords will be auto-extracted and unique rows added.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isUploading ? (
-              <div className="flex flex-col items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="mt-4 text-muted-foreground">Processing file...</p>
-              </div>
-            ) : (
-              <DropZone onFileSelect={handleFileSelect} />
-            )}
-          </CardContent>
-        </Card>
+        {/* Upload Section - Only show for users who can upload */}
+        {canUpload && (
+          <Card className="shadow-md border-l-4 border-l-emerald-500">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Upload className="h-5 w-5 text-emerald-500" />
+                Upload Excel File
+              </CardTitle>
+              <CardDescription>
+                Upload an Excel file with a "clarification" sheet. Keywords will be auto-extracted and unique rows added.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isUploading ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="mt-4 text-muted-foreground">Processing file...</p>
+                </div>
+              ) : (
+                <DropZone onFileSelect={handleFileSelect} />
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Data Table */}
         {isLoading ? (
@@ -297,12 +303,16 @@ export default function Dashboard() {
               </div>
               <h3 className="text-xl font-medium">No data yet</h3>
               <p className="text-muted-foreground text-center mt-2 mb-6 max-w-md">
-                Upload an Excel file with a "clarification" sheet or add rows manually to get started.
+                {canCreate 
+                  ? "Upload an Excel file with a \"clarification\" sheet or add rows manually to get started."
+                  : "No clarification data available. Contact an admin or editor to add data."}
               </p>
-              <Button onClick={() => { setEditingRow(null); setShowForm(true); }}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add First Row
-              </Button>
+              {canCreate && (
+                <Button onClick={() => { setEditingRow(null); setShowForm(true); }}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add First Row
+                </Button>
+              )}
             </CardContent>
           </Card>
         )}

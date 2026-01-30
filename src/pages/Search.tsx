@@ -12,8 +12,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Download, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useRolePermissions } from '@/hooks/useRolePermissions';
 
 export default function SearchPage() {
+  const { canCreate } = useRolePermissions();
   const [searchParams] = useSearchParams();
   const [clarifications, setClarifications] = useState<Clarification[]>([]);
   const [globalFilter, setGlobalFilter] = useState(searchParams.get('q') || '');
@@ -93,10 +95,12 @@ export default function SearchPage() {
               <Download className="h-4 w-4" />
               Export CSV
             </Button>
-            <Button onClick={() => { setEditingRow(null); setShowForm(true); }} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Add Row
-            </Button>
+            {canCreate && (
+              <Button onClick={() => { setEditingRow(null); setShowForm(true); }} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Add Row
+              </Button>
+            )}
           </div>
         </div>
 

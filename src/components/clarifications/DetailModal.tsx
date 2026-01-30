@@ -11,6 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Copy, Check, Edit } from 'lucide-react';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { useRolePermissions } from '@/hooks/useRolePermissions';
 
 interface DetailModalProps {
   clarification: Clarification | null;
@@ -23,6 +24,7 @@ interface DetailModalProps {
 export function DetailModal({ clarification, open, onOpenChange, onEdit, highlightTerms = [] }: DetailModalProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const { toast } = useToast();
+  const { canEdit } = useRolePermissions();
 
   if (!clarification) return null;
 
@@ -83,7 +85,7 @@ export function DetailModal({ clarification, open, onOpenChange, onEdit, highlig
                 {clarification.module || 'Unknown Module'}
               </span>
             </div>
-            {onEdit && (
+            {onEdit && canEdit && (
               <Button variant="outline" size="sm" onClick={() => onEdit(clarification)}>
                 <Edit className="h-4 w-4 mr-1" />
                 Edit
