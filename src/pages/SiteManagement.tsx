@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import MainLayout from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -53,18 +54,19 @@ const ROLE_BADGES: Record<AppRole, { variant: 'default' | 'secondary' | 'outline
 export default function SiteManagement() {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { isAdmin, canManageUsers } = useRolePermissions();
+  const { isAdmin, canManageUsers, role } = useRolePermissions();
+  const { isLoading: authLoading } = useAuth();
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [newUser, setNewUser] = useState({ email: '', password: '', displayName: '', role: 'viewer' as AppRole });
 
-  // Redirect non-admins
+  // Redirect non-admins only after auth is fully loaded
   useEffect(() => {
-    if (!canManageUsers) {
+    if (!authLoading && !canManageUsers) {
       navigate('/');
     }
-  }, [canManageUsers, navigate]);
+  }, [canManageUsers, navigate, authLoading]);
 
   const loadUsers = async () => {
     setIsLoading(true);
@@ -110,10 +112,10 @@ export default function SiteManagement() {
   };
 
   useEffect(() => {
-    if (canManageUsers) {
+    if (!authLoading && canManageUsers) {
       loadUsers();
     }
-  }, [canManageUsers]);
+  }, [canManageUsers, authLoading]);
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -193,6 +195,17 @@ export default function SiteManagement() {
       });
     }
   };
+
+  // Show loading while auth is loading
+  if (authLoading) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
 
   if (!canManageUsers) {
     return null;
