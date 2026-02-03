@@ -176,12 +176,43 @@ export type Database = {
         }
         Relationships: []
       }
+      password_reset_otps: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          mobile_number: string
+          otp_code: string
+          used: boolean
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          mobile_number: string
+          otp_code: string
+          used?: boolean
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          mobile_number?: string
+          otp_code?: string
+          used?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
           display_name: string | null
           email: string | null
           id: string
+          mobile_number: string | null
           updated_at: string
           user_id: string
         }
@@ -190,6 +221,7 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id?: string
+          mobile_number?: string | null
           updated_at?: string
           user_id: string
         }
@@ -198,6 +230,7 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id?: string
+          mobile_number?: string | null
           updated_at?: string
           user_id?: string
         }

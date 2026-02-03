@@ -32,7 +32,10 @@ import {
   Loader2,
   Crown,
   Edit3,
-  Eye
+  Eye,
+  Phone,
+  Save,
+  X
 } from 'lucide-react';
 import { AppRole } from '@/types/roles';
 
@@ -41,6 +44,7 @@ interface UserWithRole {
   user_id: string;
   email: string | null;
   display_name: string | null;
+  mobile_number: string | null;
   role: AppRole;
   created_at: string;
 }
@@ -59,7 +63,8 @@ export default function SiteManagement() {
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
-  const [newUser, setNewUser] = useState({ email: '', password: '', displayName: '', role: 'viewer' as AppRole });
+  const [newUser, setNewUser] = useState({ email: '', password: '', displayName: '', mobileNumber: '', role: 'viewer' as AppRole });
+  const [editingMobile, setEditingMobile] = useState<{ id: string; value: string } | null>(null);
 
   // Redirect non-admins only after auth is fully loaded
   useEffect(() => {
@@ -74,7 +79,7 @@ export default function SiteManagement() {
       // Get all profiles with their roles
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, user_id, email, display_name, created_at');
+        .select('id, user_id, email, display_name, mobile_number, created_at');
       
       if (profilesError) throw profilesError;
 
@@ -93,6 +98,7 @@ export default function SiteManagement() {
           user_id: profile.user_id,
           email: profile.email,
           display_name: profile.display_name,
+          mobile_number: profile.mobile_number,
           role: (userRole?.role as AppRole) || 'viewer',
           created_at: profile.created_at,
         };
@@ -134,6 +140,7 @@ export default function SiteManagement() {
           emailRedirectTo: window.location.origin,
           data: {
             display_name: newUser.displayName || newUser.email.split('@')[0],
+            mobile_number: newUser.mobileNumber || null,
           },
         },
       });
@@ -158,7 +165,7 @@ export default function SiteManagement() {
           description: `${newUser.email} has been added as ${newUser.role}.`,
         });
 
-        setNewUser({ email: '', password: '', displayName: '', role: 'viewer' });
+        setNewUser({ email: '', password: '', displayName: '', mobileNumber: '', role: 'viewer' });
         await loadUsers();
       }
     } catch (error: any) {
@@ -191,6 +198,31 @@ export default function SiteManagement() {
       toast({
         title: 'Error updating role',
         description: error.message || 'Could not update role.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleMobileNumberUpdate = async (profileId: string, newMobile: string) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ mobile_number: newMobile || null })
+        .eq('id', profileId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Mobile number updated',
+        description: 'User mobile number has been updated.',
+      });
+
+      setEditingMobile(null);
+      await loadUsers();
+    } catch (error: any) {
+      toast({
+        title: 'Error updating mobile number',
+        description: error.message || 'Could not update mobile number.',
         variant: 'destructive',
       });
     }
@@ -241,7 +273,7 @@ export default function SiteManagement() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleCreateUser} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <form onSubmit={handleCreateUser} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -272,6 +304,19 @@ export default function SiteManagement() {
                   placeholder="John Doe"
                   value={newUser.displayName}
                   onChange={(e) => setNewUser({ ...newUser, displayName: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="mobileNumber" className="flex items-center gap-1">
+                  <Phone className="h-3 w-3" />
+                  Mobile
+                </Label>
+                <Input
+                  id="mobileNumber"
+                  type="tel"
+                  placeholder="Mobile number"
+                  value={newUser.mobileNumber}
+                  onChange={(e) => setNewUser({ ...newUser, mobileNumber: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
@@ -336,6 +381,7 @@ export default function SiteManagement() {
                     <TableRow>
                       <TableHead>User</TableHead>
                       <TableHead>Email</TableHead>
+                      <TableHead>Mobile</TableHead>
                       <TableHead>Role</TableHead>
                       <TableHead>Joined</TableHead>
                       <TableHead>Actions</TableHead>
@@ -345,12 +391,56 @@ export default function SiteManagement() {
                     {users.map((user) => {
                       const roleBadge = ROLE_BADGES[user.role];
                       const RoleIcon = roleBadge.icon;
+                      const isEditingThis = editingMobile?.id === user.id;
                       return (
                         <TableRow key={user.id}>
                           <TableCell className="font-medium">
                             {user.display_name || 'Unknown'}
                           </TableCell>
                           <TableCell>{user.email || '-'}</TableCell>
+                          <TableCell>
+                            {isEditingThis ? (
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="tel"
+                                  value={editingMobile.value}
+                                  onChange={(e) => setEditingMobile({ ...editingMobile, value: e.target.value })}
+                                  className="w-32 h-8"
+                                  placeholder="Mobile"
+                                />
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8"
+                                  onClick={() => handleMobileNumberUpdate(user.id, editingMobile.value)}
+                                >
+                                  <Save className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8"
+                                  onClick={() => setEditingMobile(null)}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm">
+                                  {user.mobile_number || '-'}
+                                </span>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6"
+                                  onClick={() => setEditingMobile({ id: user.id, value: user.mobile_number || '' })}
+                                >
+                                  <Edit3 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            )}
+                          </TableCell>
                           <TableCell>
                             <Badge variant={roleBadge.variant} className="gap-1">
                               <RoleIcon className="h-3 w-3" />
