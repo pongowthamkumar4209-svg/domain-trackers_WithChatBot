@@ -1,17 +1,18 @@
 import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertCircle, FileSpreadsheet, Lock, UserPlus } from 'lucide-react';
+import { AlertCircle, FileSpreadsheet, Lock, UserPlus, Phone } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [mobileNumber, setMobileNumber] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
@@ -23,20 +24,34 @@ export default function Login() {
   
   const from = location.state?.from?.pathname || '/';
 
+  const validateMobileNumber = (number: string) => {
+    // Allow empty for optional or validate 10-digit number
+    if (!number) return true;
+    const cleaned = number.replace(/\D/g, '');
+    return cleaned.length >= 10 && cleaned.length <= 15;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    
+    if (isSignUp && mobileNumber && !validateMobileNumber(mobileNumber)) {
+      setError('Please enter a valid mobile number (10-15 digits)');
+      return;
+    }
+    
     setIsLoading(true);
     
     try {
       if (isSignUp) {
-        const result = await signUp(email, password, displayName);
+        const result = await signUp(email, password, displayName, mobileNumber);
         if (result.success) {
           toast({
             title: 'Account created!',
             description: 'You can now sign in with your credentials.',
           });
           setIsSignUp(false);
+          setMobileNumber('');
         } else {
           setError(result.error || 'Failed to create account');
         }
@@ -96,17 +111,36 @@ export default function Login() {
               )}
               
               {isSignUp && (
-                <div className="space-y-2">
-                  <Label htmlFor="displayName">Display Name</Label>
-                  <Input
-                    id="displayName"
-                    type="text"
-                    placeholder="Enter display name"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    autoComplete="name"
-                  />
-                </div>
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="displayName">Display Name</Label>
+                    <Input
+                      id="displayName"
+                      type="text"
+                      placeholder="Enter display name"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      autoComplete="name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="mobileNumber" className="flex items-center gap-2">
+                      <Phone className="w-4 h-4" />
+                      Mobile Number
+                    </Label>
+                    <Input
+                      id="mobileNumber"
+                      type="tel"
+                      placeholder="Enter mobile number (for password recovery)"
+                      value={mobileNumber}
+                      onChange={(e) => setMobileNumber(e.target.value)}
+                      autoComplete="tel"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Used for password recovery via OTP
+                    </p>
+                  </div>
+                </>
               )}
               
               <div className="space-y-2">
@@ -136,6 +170,17 @@ export default function Login() {
                 />
               </div>
               
+              {!isSignUp && (
+                <div className="text-right">
+                  <Link 
+                    to="/forgot-password" 
+                    className="text-sm text-primary hover:underline"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+              )}
+              
               <Button 
                 type="submit" 
                 className="w-full" 
@@ -152,6 +197,7 @@ export default function Login() {
                 onClick={() => {
                   setIsSignUp(!isSignUp);
                   setError('');
+                  setMobileNumber('');
                 }}
               >
                 {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
