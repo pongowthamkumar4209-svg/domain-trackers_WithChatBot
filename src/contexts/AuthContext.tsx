@@ -7,6 +7,8 @@ interface Profile {
   user_id: string;
   display_name: string | null;
   email: string | null;
+  mobile_number: string | null;
+  created_at: string;
 }
 
 type AppRole = 'admin' | 'editor' | 'viewer';
@@ -39,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await (supabase
         .from('profiles' as any)
-        .select('id, user_id, display_name, email')
+        .select('id, user_id, display_name, email, mobile_number, created_at')
         .eq('user_id', userId)
         .maybeSingle() as any);
       
