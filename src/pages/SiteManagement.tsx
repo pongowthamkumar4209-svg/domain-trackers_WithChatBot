@@ -244,25 +244,20 @@ export default function SiteManagement() {
   const handleDeleteUser = async (userId: string, userEmail: string | null) => {
     setDeletingUserId(userId);
     try {
-      // Delete user role first
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', userId);
+      // Call edge function to delete user from auth.users
+      const { data, error } = await supabase.functions.invoke('delete-user', {
+        body: { userId },
+      });
 
-      if (roleError) throw roleError;
+      if (error) throw error;
 
-      // Delete user profile
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('user_id', userId);
-
-      if (profileError) throw profileError;
+      if (data?.error) {
+        throw new Error(data.error);
+      }
 
       toast({
         title: 'User removed',
-        description: `${userEmail || 'User'} has been removed from the site.`,
+        description: `${userEmail || 'User'} has been completely removed from the system.`,
       });
 
       await loadUsers();
