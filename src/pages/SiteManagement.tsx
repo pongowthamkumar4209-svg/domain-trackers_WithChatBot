@@ -35,8 +35,20 @@ import {
   Eye,
   Phone,
   Save,
-  X
+  X,
+  Trash2
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { AppRole } from '@/types/roles';
 
 interface UserWithRole {
@@ -65,6 +77,7 @@ export default function SiteManagement() {
   const [isCreating, setIsCreating] = useState(false);
   const [newUser, setNewUser] = useState({ email: '', password: '', displayName: '', mobileNumber: '', role: 'viewer' as AppRole });
   const [editingMobile, setEditingMobile] = useState<{ id: string; value: string } | null>(null);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
 
   // Redirect non-admins only after auth is fully loaded
   useEffect(() => {
@@ -225,6 +238,42 @@ export default function SiteManagement() {
         description: error.message || 'Could not update mobile number.',
         variant: 'destructive',
       });
+    }
+  };
+
+  const handleDeleteUser = async (userId: string, userEmail: string | null) => {
+    setDeletingUserId(userId);
+    try {
+      // Delete user role first
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId);
+
+      if (roleError) throw roleError;
+
+      // Delete user profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('user_id', userId);
+
+      if (profileError) throw profileError;
+
+      toast({
+        title: 'User removed',
+        description: `${userEmail || 'User'} has been removed from the site.`,
+      });
+
+      await loadUsers();
+    } catch (error: any) {
+      toast({
+        title: 'Error removing user',
+        description: error.message || 'Could not remove user.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeletingUserId(null);
     }
   };
 
@@ -451,19 +500,55 @@ export default function SiteManagement() {
                             {new Date(user.created_at).toLocaleDateString()}
                           </TableCell>
                           <TableCell>
-                            <Select
-                              value={user.role}
-                              onValueChange={(value: AppRole) => handleRoleChange(user.user_id, value)}
-                            >
-                              <SelectTrigger className="w-32">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="admin">Admin</SelectItem>
-                                <SelectItem value="editor">Editor</SelectItem>
-                                <SelectItem value="viewer">Viewer</SelectItem>
-                              </SelectContent>
-                            </Select>
+                            <div className="flex items-center gap-2">
+                              <Select
+                                value={user.role}
+                                onValueChange={(value: AppRole) => handleRoleChange(user.user_id, value)}
+                              >
+                                <SelectTrigger className="w-32">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="admin">Admin</SelectItem>
+                                  <SelectItem value="editor">Editor</SelectItem>
+                                  <SelectItem value="viewer">Viewer</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                    disabled={deletingUserId === user.user_id}
+                                  >
+                                    {deletingUserId === user.user_id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Remove User</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to remove <strong>{user.email || user.display_name}</strong> from the site? 
+                                      This will delete their profile and role but will not delete their authentication account.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleDeleteUser(user.user_id, user.email)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      Remove User
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
