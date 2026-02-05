@@ -60,56 +60,115 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get the user ID to delete from the request body
-    const { userId } = await req.json();
-    if (!userId) {
+    // Get the user ID (or email) to delete from the request body
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      body = {};
+    }
+
+    const userId = typeof body?.userId === "string" ? body.userId : undefined;
+    const email = typeof body?.email === "string" ? body.email : undefined;
+
+    if (!userId && !email) {
       return new Response(
-        JSON.stringify({ error: "User ID is required" }),
+        JSON.stringify({ error: "userId or email is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Prevent self-deletion
-    if (userId === requestingUser.id) {
+    const targetUserIds: string[] = [];
+    if (userId) {
+      targetUserIds.push(userId);
+    } else {
+      const normalizedEmail = email!.trim().toLowerCase();
+      const { data: usersData, error: listError } = await supabaseAdmin.auth.admin.listUsers({
+        page: 1,
+        perPage: 1000,
+      });
+
+      if (listError) {
+        console.error("Error listing users:", listError);
+        return new Response(
+          JSON.stringify({ error: listError.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const matches = (usersData?.users || []).filter(
+        (u) => (u.email || "").trim().toLowerCase() === normalizedEmail
+      );
+
+      // Idempotent: if the user doesn't exist, treat as success
+      if (matches.length === 0) {
+        return new Response(
+          JSON.stringify({ success: true, message: "User not found (already removed)" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      targetUserIds.push(...matches.map((u) => u.id));
+    }
+
+    // Prevent self-deletion (for both userId and email-based deletes)
+    if (targetUserIds.includes(requestingUser.id)) {
       return new Response(
         JSON.stringify({ error: "Cannot delete your own account" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Delete user_roles first
-    const { error: rolesDeleteError } = await supabaseAdmin
-      .from("user_roles")
-      .delete()
-      .eq("user_id", userId);
+    const results: Array<{ user_id: string; success: boolean; error?: string }> = [];
 
-    if (rolesDeleteError) {
-      console.error("Error deleting user roles:", rolesDeleteError);
+    for (const targetId of targetUserIds) {
+      try {
+        // Delete the user from the authentication system first.
+        // This prevents the "user already registered" issue caused by partial deletions.
+        const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(targetId);
+
+        // Idempotent: treat "User not found" as success
+        if (authDeleteError && authDeleteError.message !== "User not found") {
+          console.error("Error deleting auth user:", authDeleteError);
+          results.push({ user_id: targetId, success: false, error: authDeleteError.message });
+          continue;
+        }
+
+        // Then delete app records (profile + role) so the user disappears from the admin table.
+        const [rolesRes, profileRes] = await Promise.all([
+          supabaseAdmin.from("user_roles").delete().eq("user_id", targetId),
+          supabaseAdmin.from("profiles").delete().eq("user_id", targetId),
+        ]);
+
+        if (rolesRes.error || profileRes.error) {
+          if (rolesRes.error) console.error("Error deleting user roles:", rolesRes.error);
+          if (profileRes.error) console.error("Error deleting profile:", profileRes.error);
+          results.push({
+            user_id: targetId,
+            success: false,
+            error: rolesRes.error?.message || profileRes.error?.message || "Failed to remove user records",
+          });
+          continue;
+        }
+
+        results.push({ user_id: targetId, success: true });
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : "Unknown error";
+        console.error("Unexpected delete failure:", e);
+        results.push({ user_id: targetId, success: false, error: message });
+      }
     }
 
-    // Delete profile
-    const { error: profileDeleteError } = await supabaseAdmin
-      .from("profiles")
-      .delete()
-      .eq("user_id", userId);
-
-    if (profileDeleteError) {
-      console.error("Error deleting profile:", profileDeleteError);
-    }
-
-    // Delete the user from auth.users using admin API
-    const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
-
-    if (authDeleteError) {
-      console.error("Error deleting auth user:", authDeleteError);
+    const failures = results.filter((r) => !r.success);
+    if (failures.length > 0) {
       return new Response(
-        JSON.stringify({ error: authDeleteError.message }),
+        JSON.stringify({ error: "Some deletions failed", results }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     return new Response(
-      JSON.stringify({ success: true, message: "User deleted successfully" }),
+      JSON.stringify({ success: true, message: "User deleted successfully", results }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {

@@ -50,6 +50,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { AppRole } from '@/types/roles';
+import PurgeRegistrationByEmail from '@/components/site-management/PurgeRegistrationByEmail';
 
 interface UserWithRole {
   id: string;
@@ -78,6 +79,7 @@ export default function SiteManagement() {
   const [newUser, setNewUser] = useState({ email: '', password: '', displayName: '', mobileNumber: '', role: 'viewer' as AppRole });
   const [editingMobile, setEditingMobile] = useState<{ id: string; value: string } | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [showRegistrationCleanup, setShowRegistrationCleanup] = useState(false);
 
   // Redirect non-admins only after auth is fully loaded
   useEffect(() => {
@@ -138,6 +140,7 @@ export default function SiteManagement() {
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
+    setShowRegistrationCleanup(false);
     if (!newUser.email || !newUser.password) {
       toast({ title: 'Missing fields', description: 'Email and password are required.', variant: 'destructive' });
       return;
@@ -182,9 +185,13 @@ export default function SiteManagement() {
         await loadUsers();
       }
     } catch (error: any) {
+      const message = error?.message || 'Could not create user.';
+      if (/already registered/i.test(message)) {
+        setShowRegistrationCleanup(true);
+      }
       toast({
         title: 'Error creating user',
-        description: error.message || 'Could not create user.',
+        description: message,
         variant: 'destructive',
       });
     } finally {
@@ -259,6 +266,9 @@ export default function SiteManagement() {
         title: 'User removed',
         description: `${userEmail || 'User'} has been completely removed from the system.`,
       });
+
+      // Remove from UI immediately
+      setUsers((prev) => prev.filter((u) => u.user_id !== userId));
 
       await loadUsers();
     } catch (error: any) {
@@ -395,6 +405,12 @@ export default function SiteManagement() {
                 </Button>
               </div>
             </form>
+
+            {showRegistrationCleanup && newUser.email ? (
+              <div className="mt-4">
+                <PurgeRegistrationByEmail email={newUser.email} onPurged={loadUsers} />
+              </div>
+            ) : null}
           </CardContent>
         </Card>
 
@@ -529,7 +545,7 @@ export default function SiteManagement() {
                                     <AlertDialogTitle>Remove User</AlertDialogTitle>
                                     <AlertDialogDescription>
                                       Are you sure you want to remove <strong>{user.email || user.display_name}</strong> from the site? 
-                                      This will delete their profile and role but will not delete their authentication account.
+                                      This will fully remove their account so the same email can be registered again.
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
