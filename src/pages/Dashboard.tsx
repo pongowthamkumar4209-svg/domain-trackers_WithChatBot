@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
+import { useAuth } from '@/contexts/AuthContext';
+import { useVoiceGreeting } from '@/hooks/useVoiceGreeting';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { SearchBar } from '@/components/search/SearchBar';
@@ -28,6 +30,8 @@ import {
 
 export default function Dashboard() {
   const { canCreate, canEdit, canUpload } = useRolePermissions();
+  const { profile } = useAuth();
+  useVoiceGreeting(profile?.display_name);
   const [stats, setStats] = useState<ClarificationStats | null>(null);
   const [clarifications, setClarifications] = useState<Clarification[]>([]);
   const [selectedRow, setSelectedRow] = useState<Clarification | null>(null);
