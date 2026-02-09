@@ -14,6 +14,7 @@ import History from "./pages/History";
 import Settings from "./pages/Settings";
 import SiteManagement from "./pages/SiteManagement";
 import NotFound from "./pages/NotFound";
+import { Navigate } from "react-router-dom";
 
 const queryClient = new QueryClient();
 
@@ -27,13 +28,14 @@ const App = () => (
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/" element={<Navigate to="/app" replace />} />
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
             <Route path="/search" element={<ProtectedRoute><Search /></ProtectedRoute>} />
             <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/site-management" element={<ProtectedRoute><SiteManagement /></ProtectedRoute>} />
-            <Route path="*" element={<NotFound />} />
+            <Route path="*" element={<Navigate to="/app" replace />} />
           </Routes>
         </AuthProvider>
       </BrowserRouter>
