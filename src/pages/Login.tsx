@@ -25,7 +25,6 @@ export default function Login() {
   const from = location.state?.from?.pathname || '/';
 
   const validateMobileNumber = (number: string) => {
-    // Allow empty for optional or validate 10-digit number
     if (!number) return true;
     const cleaned = number.replace(/\D/g, '');
     return cleaned.length >= 10 && cleaned.length <= 15;
@@ -75,26 +74,38 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-6">
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
+      style={{
+        background: 'linear-gradient(135deg, hsl(221 83% 20%) 0%, hsl(262 60% 30%) 30%, hsl(221 83% 35%) 60%, hsl(200 80% 25%) 100%)',
+      }}
+    >
+      {/* Decorative blobs */}
+      <div className="absolute top-[-120px] left-[-80px] w-[400px] h-[400px] rounded-full opacity-20 blur-3xl"
+        style={{ background: 'radial-gradient(circle, hsl(262 83% 58%), transparent 70%)' }} />
+      <div className="absolute bottom-[-100px] right-[-60px] w-[350px] h-[350px] rounded-full opacity-15 blur-3xl"
+        style={{ background: 'radial-gradient(circle, hsl(200 80% 50%), transparent 70%)' }} />
+      <div className="absolute top-[40%] right-[15%] w-[200px] h-[200px] rounded-full opacity-10 blur-2xl"
+        style={{ background: 'radial-gradient(circle, hsl(38 92% 50%), transparent 70%)' }} />
+
+      <div className="w-full max-w-md space-y-6 relative z-10">
         {/* Logo/Branding */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary text-primary-foreground mb-4">
-            <FileSpreadsheet className="w-8 h-8" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/20 backdrop-blur-sm border border-primary-foreground/20 mb-4">
+            <FileSpreadsheet className="w-8 h-8 text-primary-foreground" />
           </div>
-          <h1 className="text-3xl font-display tracking-wide text-foreground">
+          <h1 className="text-3xl font-display tracking-wide text-primary-foreground">
             CN Clarification Portal
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-primary-foreground/70">
             Manage and search Excel clarification data
           </p>
         </div>
         
         {/* Login Card */}
-        <Card className="border-border/50 shadow-lg">
+        <Card className="border-primary-foreground/10 shadow-2xl bg-card/90 backdrop-blur-md">
           <CardHeader className="space-y-1">
             <CardTitle className="text-xl font-semibold flex items-center gap-2">
-              {isSignUp ? <UserPlus className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
+              {isSignUp ? <UserPlus className="w-5 h-5 text-accent" /> : <Lock className="w-5 h-5 text-primary" />}
               {isSignUp ? 'Create Account' : 'Sign In'}
             </CardTitle>
             <CardDescription>
