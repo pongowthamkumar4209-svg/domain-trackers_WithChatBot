@@ -35,7 +35,7 @@ const App = () => (
             <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/site-management" element={<ProtectedRoute><SiteManagement /></ProtectedRoute>} />
-            <Route path="*" element={<Navigate to="/app" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </AuthProvider>
       </BrowserRouter>
