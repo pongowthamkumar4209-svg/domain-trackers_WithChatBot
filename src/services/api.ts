@@ -1,8 +1,10 @@
 /**
- * API Service — talks to Flask/SQLite backend at /api
+ * API Service — talks to Flask/SQLite backend
+ * Locally:     /api  (proxied by Vite to localhost:5000)
+ * Production:  VITE_API_BASE env var (e.g. https://cn-portal-backend.onrender.com/api)
  */
 
-const BASE = "/api";
+const BASE = import.meta.env.VITE_API_BASE || "/api";
 
 function getToken(): string | null {
   return localStorage.getItem("auth_token");

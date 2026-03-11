@@ -17,7 +17,13 @@ from flask_cors import CORS
 import anthropic
 
 app = Flask(__name__)
-CORS(app, origins=["http://localhost:5173", "http://localhost:3000", "http://localhost:4173"])
+CORS(app, origins=[
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:4173",
+    "https://domain-trackers-with-chat-bot.vercel.app",
+    "https://*.vercel.app",
+], supports_credentials=True)
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "portal.db")
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
@@ -624,9 +630,10 @@ def health():
 if __name__ == "__main__":
     init_db()
     seed_dummy_data()
-    print("🚂 Railroad Clarification Portal API running on http://localhost:5000")
+    port = int(os.environ.get("PORT", 5000))
+    print("🚂 Railroad Clarification Portal API running on http://localhost:" + str(port))
     print("📋 Demo accounts:")
     print("   admin@railroad.com  / admin123  (admin)")
     print("   editor@railroad.com / editor123 (editor)")
     print("   viewer@railroad.com / viewer123 (viewer)")
-    app.run(debug=True, port=5000, threaded=True)
+    app.run(debug=False, host="0.0.0.0", port=port, threaded=True)
