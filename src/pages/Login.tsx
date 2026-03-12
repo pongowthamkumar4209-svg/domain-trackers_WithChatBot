@@ -42,7 +42,7 @@ export default function Login() {
           <h1 className="font-display text-3xl tracking-wider text-foreground">
             RAILROAD CLARIFICATION PORTAL
           </h1>
-          <p className="text-sm text-muted-foreground">Canadian National Railways</p>
+          <p className="text-sm text-muted-foreground">Railways</p>
         </div>
 
         <Card>

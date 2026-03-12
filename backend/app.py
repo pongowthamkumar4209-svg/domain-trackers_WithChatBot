@@ -123,7 +123,7 @@ def seed_dummy_data():
             VALUES (?, ?, ?, ?, ?)
         """, (viewer_id, "viewer@railroad.com", hash_password("viewer123"), "Bob Lee", "viewer"))
 
-        # Seed 30 realistic CN (Clarification Notice) records for Canadian National Railways
+        # Seed 30 realistic CN (Clarification Notice) records for Railways
         clarifications = [
             (1, "Locomotive", "Verify max axle load for CN 4500 class on the Bala subdivision. Drawings show 28t but operational manual says 26t. Which is the authoritative source?", "Closed", "Offshore: Drawing version 3.2 is authoritative; manual is outdated. Axle load is 28t.", "Onsite: Confirmed 28t. Manual will be updated in next revision cycle.", "John Tester", "Priya R.", "John T.", "No", "P1", "Track Engineering", "Drop-1"),
             (2, "Signalling", "Signal aspect 'Clear to Limited' not defined in the CN Rule Book section 4.2. How should crews interpret this at controlled points?", "Closed", "Offshore: Refer to CROR Rule 410(a) which supersedes local rule book.", "Onsite: Training bulletin issued to all conductors.", "Sarah K.", "Rahul M.", "Sarah K.", "No", "P2", "Operations", "Drop-1"),
@@ -549,7 +549,7 @@ ALL CLARIFICATION NOTICES (full detail):
     return context
 
 
-SYSTEM_PROMPT_BASE = """You are CN Bot, an AI assistant for the Railroad Clarification Portal used by Canadian National Railways engineering teams.
+SYSTEM_PROMPT_BASE = """You are CN Bot, an AI assistant for the Railroad Clarification Portal used by Railways engineering teams.
 
 You have DIRECT ACCESS to the live database — the snapshot below contains every CN record with full details.
 Use this data to answer questions precisely and accurately.
